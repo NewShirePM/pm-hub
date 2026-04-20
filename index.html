@@ -1616,7 +1616,8 @@ function App(){
     };
     const tabs=defs[role]||[];
     // Annotate help queue with count
-    return tabs.map(t=>t.k==="helpqueue"?{...t,l:`Help Queue${(data?.helpQueue?.filter(q=>q.Status==="Open").length||0)>0?" ("+data.helpQueue.filter(q=>q.Status==="Open").length+")":""}`}:t);
+    const openHQ=(data?.helpQueue||[]).filter(q=>q.Status==="Open").length;
+    return tabs.map(t=>t.k==="helpqueue"?{...t,l:`Help Queue${openHQ>0?" ("+openHQ+")":""}`}:t);
   },[role,data?.helpQueue]);
 
   // Use resolved email from Employees list (set in loadAll) so it matches PM_Activity records
