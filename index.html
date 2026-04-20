@@ -1341,12 +1341,20 @@ function App(){
     setLoading(true);
     try{
       const tk=await getToken();
-      const myEmail=acct.username.toLowerCase();
+      const msalEmail=acct.username.toLowerCase();
 
       // Load employees first to determine role
       const empRaw=await safeGet(tk,"Employees",`${lUrl(CONFIG.listEmployees)}?expand=fields&$top=200`);
       const emps=empRaw.map(e=>({...e.fields,id:e.id}));
-      const me=emps.find(e=>e.Email?.toLowerCase()===myEmail)||{Email:myEmail};
+      // Multi-strategy match: exact email, M365UserId, or username prefix (handles vanrockre vs newshirepm domains)
+      const me=emps.find(e=>{
+        const eml=e.Email?.toLowerCase()||"";
+        const m365=e.M365UserId?.toLowerCase()||"";
+        return eml===msalEmail||m365===msalEmail||
+          (eml&&msalEmail&&eml.split("@")[0]===msalEmail.split("@")[0]);
+      })||{Email:msalEmail};
+      // Use Employees list email so it matches PM_Activity records exactly
+      const myEmail=(me?.Email||msalEmail).toLowerCase();
       const userRole=detectRole(me,CONFIG.adminEmails);
 
       if(!userRole||userRole==="denied"){
@@ -1436,7 +1444,7 @@ function App(){
   async function flagHelp(task,type,opts){
     try{
       const tk=await getToken();
-      const myEmail=acct.username.toLowerCase();
+      const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       if(type==="peer"){
         await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Help-${task.Title||task.Description}`,TaskTitle:task.Title||task.Description,RequestingPMEmail:myEmail,RequestingPMName:myEmp?.Name||myEmail,PropertyName:task.PropertyName||"",Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",SourceActivityId:task.id,CreatedAt:new Date().toISOString()});
       }else if(type==="tag"){
@@ -1452,7 +1460,7 @@ function App(){
   async function submitVATask(opts){
     try{
       const tk=await getToken();
-      const myEmail=acct.username.toLowerCase();
+      const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Task-${opts.desc}`,ActivityType:"Task",VAEmail:opts.routedVA.VAEmail||opts.routedVA.Email,VAName:opts.routedVA.Name||opts.routedVA.VAName,PropertyName:opts.prop,Category:opts.cat,Priority:opts.pri||"Normal",Notes:opts.notes||"",Status:"Queued",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,ActivityDate:new Date().toISOString(),Source:"Assigned"});
       await loadAll();
     }catch(e){fl("Error: "+e.message);}
@@ -1513,7 +1521,7 @@ function App(){
   async function addRecurring(fields){
     try{
       const tk=await getToken();
-      const myEmail=acct.username.toLowerCase();
+      const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       const pm=data.pms?.find(p=>p.Name===fields.appliesTo||fields.appliesTo?.startsWith(p.Name));
       await gPost(tk,lUrl(CONFIG.listRecurring),{Title:`RT-${uid()}`,Description:fields.desc,AppliesToEmail:pm?.Email||"",AppliesToName:fields.appliesTo||"All PMs",AppliesToRole:"pm",Category:fields.category,Cadence:fields.cadence,Priority:fields.priority||"Normal",ContextNotes:fields.contextNotes||"",AdminNotes:fields.adminNotes||"",OnTimeCutoff:fields.onTimeCutoff||"17:00",DayOfWeek:fields.dayOfWeek??0,DueDayOfWeek:fields.dueDayOfWeek??2,DayOfMonth:fields.dayOfMonth??1,DueDayOfMonth:fields.dueDayOfMonth??5,IsActive:true,CreatedByEmail:myEmail});
       await loadAll();
@@ -1533,7 +1541,7 @@ function App(){
   async function assignAdhoc(fields){
     try{
       const tk=await getToken();
-      const myEmail=acct.username.toLowerCase();
+      const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       const pm=data.pms?.find(p=>p.Email===fields.assignedTo);
       await gPost(tk,lUrl(CONFIG.listPMActivity),{Title:`Adhoc-${fields.desc.slice(0,40)}`,ActivityType:"Ad-Hoc",Source:"Assigned",PMEmail:fields.assignedTo==="all"?"":pm?.Email||fields.assignedTo,PMName:pm?.Name||fields.assignedTo,Category:fields.category,Priority:fields.priority||"Normal",PropertyId:fields.propertyId||"",PropertyName:fields.propertyId||"General",DueDate:fields.dueDate?new Date(fields.dueDate+"T17:00:00").toISOString():null,ContextNotes:fields.contextNotes||"",Description:fields.desc,Status:"Queued",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,ActivityDate:new Date().toISOString(),Cadence:"Ad-Hoc",IsActive:true});
       await loadAll();
@@ -1546,7 +1554,7 @@ function App(){
   }
 
   async function claimHelp(q){
-    try{const tk=await getToken();const myEmail=acct.username.toLowerCase();await gPatch(tk,iUrl(CONFIG.listHelpQueue,q.id),{Status:"Claimed",ClaimedByEmail:myEmail,ClaimedByName:myEmp?.Name||myEmail,ClaimedAt:new Date().toISOString()});await loadAll();fl("Help request claimed");}
+    try{const tk=await getToken();const myEmail=(myEmp?.Email||acct.username).toLowerCase();await gPatch(tk,iUrl(CONFIG.listHelpQueue,q.id),{Status:"Claimed",ClaimedByEmail:myEmail,ClaimedByName:myEmp?.Name||myEmail,ClaimedAt:new Date().toISOString()});await loadAll();fl("Help request claimed");}
     catch(e){fl("Error: "+e.message);}
   }
 
@@ -1560,7 +1568,7 @@ function App(){
 
   async function replyToReview(reviewId,note){
     try{
-      const tk=await getToken();const myEmail=acct.username.toLowerCase();
+      const tk=await getToken();const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       const orig=data.reviews?.find(r=>r.id===reviewId);if(!orig)return;
       await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyName:orig.PropertyName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||orig.id,AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,PMEmail:myEmail,PMName:myEmp?.Name||myEmail});
       await gPatch(tk,`${SITE}/lists/${CONFIG.listVAActivity}/items/${reviewId}/fields`,{Status:"Responded"});
@@ -1570,7 +1578,7 @@ function App(){
 
   async function resolveReview(reviewId,note){
     try{
-      const tk=await getToken();const myEmail=acct.username.toLowerCase();
+      const tk=await getToken();const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       if(note){
         const orig=data.reviews?.find(r=>r.id===reviewId);
         if(orig)await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyName:orig.PropertyName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||orig.id,AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail});
@@ -1611,7 +1619,8 @@ function App(){
     return tabs.map(t=>t.k==="helpqueue"?{...t,l:`Help Queue${(data?.helpQueue?.filter(q=>q.Status==="Open").length||0)>0?" ("+data.helpQueue.filter(q=>q.Status==="Open").length+")":""}`}:t);
   },[role,data?.helpQueue]);
 
-  const myEmail=acct?.username?.toLowerCase()||"";
+  // Use resolved email from Employees list (set in loadAll) so it matches PM_Activity records
+  const myEmail=(myEmp?.Email||acct?.username||"").toLowerCase();
   const myTasks=(data?.activity||[]).filter(a=>{
     if(a.PMEmail?.toLowerCase()!==myEmail)return false;
     // Include if cadence is set, OR if it has a RecurringTaskId (catch items where cadence patch is pending)
