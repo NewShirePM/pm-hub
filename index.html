@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PM Hub — NewShire</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&family=Source+Code+Pro:wght@500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Source Sans 3','Segoe UI',sans-serif;background:#F7F8F7;min-height:100vh;color:#28434C;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#D0D8DC;border-radius:99px}
+input,select,textarea{font-family:'Source Sans 3','Segoe UI',sans-serif}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useCallback,useRef,useMemo}=React;
+
+// ============================================================
+// FAVICON
+// ============================================================
+(()=>{const l=document.querySelector("link[rel='icon']")||document.createElement("link");l.rel="icon";l.href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23CDA04B'/><text x='16' y='23' font-family='Georgia,serif' font-size='22' font-weight='bold' fill='%2328434C' text-anchor='middle'>P</text></svg>";document.head.appendChild(l)})();
+
+// ============================================================
+// CONFIG — update with real values after list audit
+// ============================================================
+const CONFIG={
+  clientId:"32e75ffa-747a-4cf0-8209-6a19150c4547",  // existing VA Tracker app reg — may need new reg
+  tenantId:"33575d04-ca7b-4396-8011-9eaea4030b46",
+  siteId:"vanrockre.sharepoint.com,a02c1cd8-9f1f-4827-8286-7b6b7ce74232,01202419-6625-4499-b0d5-8ceb1cffdba3",
+  appName:"PM HUB",
+  // New lists
+  listPMActivity:"PM_Activity",
+  listRecurring:"PM_RecurringTasks",
+  listHelpQueue:"PM_HelpQueue",
+  listTags:"PM_Tags",
+  listConfig:"PM_TrackerConfig",
+  // Existing shared lists (read-only)
+  listEmployees:"Employees",
+  listVAProperties:"VA_Properties",
+  listVAPortfolios:"VA_Portfolios",
+  listVAActivity:"VA_Activity",
+  // Admin emails
+  adminEmails:["brandy.turner@newshirepm.com","john.white@vanrockre.com"],
+};
+
+const GRAPH="https://graph.microsoft.com/v1.0";
+const SITE=`${GRAPH}/sites/${CONFIG.siteId}`;
+const SCOPES=["Sites.ReadWrite.All","User.Read","Mail.Send"];
+
+// ============================================================
+// PALETTE
+// ============================================================
+const C={
+  hdr:"#1C3740",hdrH:"#213F4A",
+  t7:"#28434C",t6:"#2F5260",t5:"#3A6577",t4:"#4A7E91",t1:"#D6E7EC",t0:"#EDF4F7",
+  g7:"#9E7B2F",g6:"#B8922E",g5:"#CDA04B",g4:"#D4AF61",g1:"#F8F0DB",g0:"#FFFBF0",
+  wh:"#FFFFFF",pg:"#F7F8F7",
+  b1:"#E8EAEA",b2:"#D0D8DC",b3:"#A8B0B0",b4:"#7A8585",b6:"#3E4A4A",dk:"#1A2A30",
+  ok:"#2D8A5A",okb:"rgba(45,138,90,0.08)",okr:"rgba(45,138,90,0.25)",
+  er:"#C44B3B",erb:"rgba(196,75,59,0.06)",err:"rgba(196,75,59,0.25)",
+  wn:"#D4960A",wnb:"rgba(212,150,10,0.08)",wnr:"rgba(212,150,10,0.25)",
+  inf:"#4A78B0",infb:"rgba(74,120,176,0.08)",infr:"rgba(74,120,176,0.25)",
+};
+const font="'Source Sans 3','Segoe UI',sans-serif";
+const mono="'Source Code Pro',Consolas,monospace";
+
+// ============================================================
+// STYLES
+// ============================================================
+const S={
+  page:{fontFamily:font,background:C.pg,minHeight:"100vh",color:C.t7},
+  hdr:{background:C.hdr,borderBottom:`2.5px solid ${C.g5}`,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",minHeight:54,position:"sticky",top:0,zIndex:100},
+  hdrTitle:{color:"#fff",fontSize:15,fontWeight:700,letterSpacing:".07em"},
+  hdrSub:{color:C.g4,fontSize:10,letterSpacing:".1em",textTransform:"uppercase"},
+  hdrUser:{color:C.t1,fontSize:13,fontWeight:600},
+  hdrRole:{fontSize:10,color:C.g4,textTransform:"uppercase",letterSpacing:".07em"},
+  tabBar:{background:C.wh,borderBottom:`1px solid ${C.b2}`,display:"flex",padding:"0 16px",overflowX:"auto",WebkitOverflowScrolling:"touch",position:"sticky",top:54,zIndex:90},
+  tab:a=>({padding:"11px 15px",fontSize:13,fontWeight:a?600:400,color:a?C.t7:C.b4,borderBottom:`2px solid ${a?C.g5:"transparent"}`,cursor:"pointer",whiteSpace:"nowrap",background:"none",border:"none",borderTop:"none",borderLeft:"none",borderRight:"none",fontFamily:font,minHeight:44,transition:".15s"}),
+  content:{maxWidth:1200,margin:"0 auto",padding:"18px 16px"},
+  card:{background:C.wh,border:`1px solid ${C.b2}`,borderRadius:6,boxShadow:"0 1px 3px rgba(28,55,64,.06)",padding:16,marginBottom:14},
+  cardT:{fontSize:15,fontWeight:600,color:C.t7,paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:12},
+  cardS:{fontSize:12,color:C.b4,marginTop:2},
+  label:{display:"block",fontSize:12,fontWeight:600,color:C.t7,marginBottom:4},
+  input:{width:"100%",padding:"8px 10px",fontSize:13,fontFamily:font,color:C.t7,background:C.wh,border:`1px solid ${C.b2}`,borderRadius:4,outline:"none",boxSizing:"border-box",transition:".15s"},
+  select:{width:"100%",padding:"8px 10px",fontSize:13,fontFamily:font,color:C.t7,background:C.wh,border:`1px solid ${C.b2}`,borderRadius:4,cursor:"pointer",boxSizing:"border-box"},
+  btn:(bg,fg)=>({display:"inline-flex",alignItems:"center",justifyContent:"center",gap:5,padding:"8px 14px",fontSize:12,fontWeight:600,fontFamily:font,color:fg||"#fff",background:bg||C.hdr,border:"none",borderRadius:4,cursor:"pointer",minHeight:40,whiteSpace:"nowrap",transition:".15s"}),
+  btnO:(fg,bdr)=>({display:"inline-flex",alignItems:"center",justifyContent:"center",gap:5,padding:"8px 14px",fontSize:12,fontWeight:600,fontFamily:font,color:fg||C.t7,background:C.wh,border:`1px solid ${bdr||C.t1}`,borderRadius:4,cursor:"pointer",minHeight:40,whiteSpace:"nowrap"}),
+  xs:{padding:"4px 10px",fontSize:11,minHeight:30},
+  sm:{padding:"5px 12px",fontSize:11,minHeight:32},
+  row:{display:"flex",gap:10,flexWrap:"wrap"},
+  th:{textAlign:"left",padding:"8px 10px",fontSize:11,fontWeight:600,color:C.t7,background:C.t0,borderBottom:`2px solid ${C.t1}`,whiteSpace:"nowrap"},
+  td:{padding:"8px 10px",fontSize:12,color:C.b6,borderBottom:`1px solid ${C.b1}`},
+  kpi:{background:C.wh,border:`1px solid ${C.b2}`,borderRadius:6,padding:"11px 8px",textAlign:"center",flex:"1 1 90px",minWidth:80},
+  kpiL:{fontSize:10,fontWeight:600,color:C.b4,textTransform:"uppercase",letterSpacing:".04em"},
+  kpiV:{fontSize:22,fontWeight:700,fontFamily:mono,marginTop:2},
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function today(){return new Date().toISOString().slice(0,10);}
+function fD(d){if(!d)return"—";return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+function fT(d){if(!d)return"—";return new Date(d).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
+function fDT(d){if(!d)return"—";return fD(d)+" "+fT(d);}
+function daysLeft(due){if(!due)return null;const diff=Math.ceil((new Date(due)-new Date())/(864e5));return diff;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function inRange(d,from,to){if(!d)return false;const t=new Date(d).getTime();return t>=new Date(from).getTime()&&t<=new Date(to).getTime()+864e5;}
+function periodKey(cadence,dayOfWeek,dayOfMonth){
+  const now=new Date();
+  if(cadence==="Daily")return now.toISOString().slice(0,10);
+  if(cadence==="Weekly"){
+    const mon=new Date(now);mon.setDate(mon.getDate()-(mon.getDay()+6)%7);
+    return now.toISOString().slice(0,4)+"-W"+String(Math.ceil((mon.getDate())/7)).padStart(2,"0")+"-"+(dayOfWeek??0);
+  }
+  if(cadence==="Monthly")return now.toISOString().slice(0,7)+"-"+(dayOfMonth??1);
+  return today();
+}
+
+const catIcon={"Work Orders":"🔧","Marketing":"📢","Resident Comms":"💬","Renewals":"📝","Inspections":"🔍","Owner Relations":"🏠","Accounts":"💰","Admin/Other":"📋","Leasing":"🔑","Reporting":"📊"};
+const catList=["Work Orders","Marketing","Resident Comms","Renewals","Inspections","Owner Relations","Accounts","Admin/Other","Leasing","Reporting"];
+
+// ============================================================
+// GRAPH API
+// ============================================================
+const lUrl=name=>`${SITE}/lists/${name}/items`;
+const iUrl=(name,id)=>`${SITE}/lists/${name}/items/${id}/fields`;
+
+async function gGet(token,url){const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw new Error(`GET ${r.status}: ${url}`);return r.json();}
+async function gAll(token,url){let a=[],n=url;while(n){const d=await gGet(token,n);a=a.concat(d.value||[]);n=d["@odata.nextLink"]||null;}return a;}
+async function gPost(token,url,fields){const r=await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({fields})});if(!r.ok)throw new Error(`POST ${r.status}`);return r.json();}
+async function gPatch(token,url,fields){const r=await fetch(url,{method:"PATCH",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(fields)});if(!r.ok)throw new Error(`PATCH ${r.status}`);return r.json();}
+
+async function safeGet(token,name,url){try{const r=await gAll(token,url);console.log(`[PMH] ${name}: ${r.length}`);return r;}catch(e){console.warn(`[PMH] ${name} failed:`,e.message);return[];}}
+
+// ============================================================
+// ROLE DETECTION
+// ============================================================
+function detectRole(emp,adminEmails){
+  if(emp?.PMHubRole)return emp.PMHubRole.toLowerCase();
+  const email=emp?.Email?.toLowerCase()||"";
+  if(adminEmails.map(e=>e.toLowerCase()).includes(email))return"admin";
+  const t=emp?.JobTitle||"";
+  if(t==="Virtual Assistant")return"denied";
+  if(t==="Property Manager")return"pm";
+  if(t==="AR Specialist")return"ar";
+  if(t==="Regional/Portfolio Manager")return"regional";
+  if(t==="Owner/Operator")return"admin";
+  return null;
+}
+
+// ============================================================
+// COMPONENTS
+// ============================================================
+function Badge({type="neutral",children,dot=false}){
+  const map={success:{c:C.ok,b:C.okb},error:{c:C.er,b:C.erb},warning:{c:C.wn,b:C.wnb},info:{c:C.inf,b:C.infb},neutral:{c:C.b4,b:C.b1},gold:{c:C.g6,b:C.g0}};
+  const m=map[type]||map.neutral;
+  return<span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",fontSize:10,fontWeight:700,borderRadius:99,textTransform:"uppercase",letterSpacing:".04em",color:m.c,background:m.b}}>
+    {dot&&<span style={{width:6,height:6,borderRadius:"50%",background:m.c,flexShrink:0}}/>}
+    {children}
+  </span>;
+}
+
+function KPI({label,value,color,sub}){
+  return<div style={S.kpi}>
+    <div style={S.kpiL}>{label}</div>
+    <div style={{...S.kpiV,color:color||C.t7}}>{value}</div>
+    {sub&&<div style={{fontSize:10,color:C.b4,marginTop:2}}>{sub}</div>}
+  </div>;
+}
+
+function Flash({msg}){
+  if(!msg)return null;
+  return<div style={{background:C.g0,borderBottom:`1px solid ${C.g1}`,padding:"8px 20px",fontSize:13,fontWeight:600,color:C.g7,textAlign:"center"}}>{msg}</div>;
+}
+
+function Spinner(){return<div style={{textAlign:"center",padding:60,color:C.b4,fontSize:14}}>Loading…</div>;}
+
+function AccessDenied({email}){
+  return<div style={{...S.content,textAlign:"center",paddingTop:80}}>
+    <div style={{...S.card,maxWidth:400,margin:"0 auto",borderLeft:`3px solid ${C.er}`}}>
+      <div style={{fontSize:36,marginBottom:12}}>🚫</div>
+      <div style={{fontSize:17,fontWeight:700,color:C.er,marginBottom:8}}>Access Denied</div>
+      <div style={{color:C.b4,fontSize:13}}>Your account is not authorized to access PM Hub.</div>
+      {email&&<div style={{fontSize:11,color:C.b3,marginTop:8}}>Signed in as: {email}</div>}
+    </div>
+  </div>;
+}
+
+// ============================================================
+// TASK DETAIL MODAL
+// ============================================================
+function TaskDetailModal({task,onClose,onComplete,onFlagHelp,role}){
+  const[notes,setNotes]=useState("");
+  const[confirming,setConfirming]=useState(false);
+  if(!task)return null;
+  const due=task.DueDate||task.DueDayOfMonth||task.DueDayOfWeek;
+  const dl=task.DueDate?daysLeft(task.DueDate):null;
+  return<div style={{position:"fixed",inset:0,background:"rgba(28,55,64,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div style={{background:C.wh,borderRadius:8,padding:22,width:440,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(15,35,40,.22)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+        <div style={{fontSize:15,fontWeight:700,color:C.t7,lineHeight:1.3,flex:1,marginRight:8}}>{task.Title||task.Description}</div>
+        <button style={{...S.btnO(C.b4,C.b2),...S.xs,flexShrink:0}} onClick={onClose}>✕</button>
+      </div>
+      <div style={{fontSize:11,color:C.b4,marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${C.b1}`}}>
+        {task.Category} · {task.Cadence||"Ad-Hoc"} · {task.PropertyName||"General"}
+        {dl!==null&&<> · <span style={{fontWeight:600,color:dl<=0?C.er:dl<=3?C.wn:C.t4}}>{dl<=0?"Overdue":`${dl}d left`}</span></>}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+        <div style={{background:C.t0,borderRadius:4,padding:"8px 10px"}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.b4,textTransform:"uppercase",marginBottom:2}}>Assigned By</div>
+          <div style={{fontSize:13,fontWeight:600,color:C.t7}}>{task.AssignedByName||"Company Policy"}</div>
+        </div>
+        <div style={{background:task.DueDate&&dl<=0?C.erb:task.DueDate&&dl<=3?C.wnb:C.t0,borderRadius:4,padding:"8px 10px"}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.b4,textTransform:"uppercase",marginBottom:2}}>Due</div>
+          <div style={{fontSize:13,fontWeight:600,color:task.DueDate&&dl<=0?C.er:task.DueDate&&dl<=3?C.wn:C.t7}}>{task.DueDate?fD(task.DueDate):task.Cadence==="Daily"?`Daily by ${task.OnTimeCutoff||"5:00 PM"}`:task.Cadence==="Weekly"?`Due ${["Mon","Tue","Wed","Thu","Fri"][task.DueDayOfWeek??2]}`:task.Cadence==="Monthly"?`Due ${task.DueDayOfMonth||5}th of month`:"—"}</div>
+        </div>
+      </div>
+
+      {task.ContextNotes&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.b4,textTransform:"uppercase",marginBottom:6}}>Instructions & Context</div>
+        <div style={{fontSize:13,color:C.b6,background:C.g0,border:`1px solid ${C.g1}`,borderRadius:4,padding:"10px 12px",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{task.ContextNotes}</div>
+      </div>}
+
+      {task.Notes&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.b4,textTransform:"uppercase",marginBottom:4}}>Previous Notes</div>
+        <div style={{fontSize:12,color:C.b6,fontStyle:"italic"}}>{task.Notes}</div>
+      </div>}
+
+      {confirming&&<div style={{marginBottom:12}}>
+        <label style={S.label}>Completion Notes (optional)</label>
+        <textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Any notes on how this was completed..."/>
+      </div>}
+
+      <div style={{display:"flex",gap:8,paddingTop:12,borderTop:`1px solid ${C.b1}`,flexWrap:"wrap"}}>
+        <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={onClose}>Close</button>
+        {task.Status!=="Completed"&&task.Status!=="Missed"&&<>
+          <button style={{...S.btnO(C.wn,C.wn),...S.sm}} onClick={()=>onFlagHelp&&onFlagHelp(task)}>🚩 Flag Help</button>
+          {confirming
+            ?<><button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>{onComplete&&onComplete(task,notes);onClose();}}>✓ Confirm Complete</button>
+               <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setConfirming(false)}>Back</button></>
+            :<button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>setConfirming(true)}>✓ Mark Complete</button>
+          }
+        </>}
+      </div>
+    </div>
+  </div>;
+}
+
+// ============================================================
+// FLAG HELP MODAL
+// ============================================================
+function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
+  const[type,setType]=useState("peer");
+  const[tagTarget,setTagTarget]=useState("");
+  const[tagMsg,setTagMsg]=useState("");
+  const[vaCategory,setVACategory]=useState(task?.Category||"");
+  const[vaDesc,setVADesc]=useState(task?.Title||task?.Description||"");
+  const[vaNotes,setVANotes]=useState("");
+  const[vaProp,setVAProp]=useState(task?.PropertyId||"");
+  if(!task)return null;
+  const tagTargets=data?.config?.tagTargets||[
+    {name:"Brandy Turner",role:"Operations Manager",email:CONFIG.adminEmails[0]},
+    {name:"John White",role:"Owner/Operator",email:CONFIG.adminEmails[1]},
+  ];
+  const myProps=data?.portfolios?.filter(p=>p.VAEmail?.toLowerCase()===myEmail)?.map(p=>data?.properties?.find(pr=>pr.id===p.PropertyId||pr.Title===p.PropertyId)).filter(Boolean)||[];
+  const selectedProp=myProps.find(p=>p.Title===vaProp||p.id===vaProp);
+  const assignedVA=selectedProp?data?.vas?.find(v=>v.Email?.toLowerCase()===data?.portfolios?.find(p=>(p.PropertyId===selectedProp.Title||p.PropertyId===selectedProp.id))?.VAEmail?.toLowerCase()):null;
+
+  return<div style={{position:"fixed",inset:0,background:"rgba(28,55,64,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div style={{background:C.wh,borderRadius:8,padding:22,width:380,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(15,35,40,.22)"}}>
+      <div style={{fontSize:15,fontWeight:700,color:C.t7,marginBottom:3}}>🚩 Flag Help</div>
+      <div style={{fontSize:11,color:C.b4,marginBottom:16,paddingBottom:12,borderBottom:`1px solid ${C.b1}`}}>{task.Title||task.Description}</div>
+
+      {[{k:"peer",title:"👥 Peer Help",desc:"Post to the shared Help Queue — any available PM can claim it"},
+        {k:"tag",title:"🏷️ Tag Team Member",desc:"Send directly to Brandy, Cara, John, or Leslie"},
+        {k:"va",title:"📌 Assign to VA",desc:"Route to your assigned VA — appears in VA Tracker immediately"}
+      ].map(o=><div key={o.k} onClick={()=>setType(o.k)} style={{display:"flex",alignItems:"flex-start",gap:10,padding:10,border:`1.5px solid ${type===o.k?C.t6:C.b2}`,borderRadius:6,cursor:"pointer",marginBottom:8,background:type===o.k?C.t0:C.wh,transition:".15s"}}>
+        <input type="radio" readOnly checked={type===o.k} style={{marginTop:3,accentColor:C.t7}}/>
+        <div><div style={{fontSize:13,fontWeight:600,color:C.t7}}>{o.title}</div><div style={{fontSize:11,color:C.b4,marginTop:1}}>{o.desc}</div></div>
+      </div>)}
+
+      {type==="tag"&&<div style={{marginTop:10}}>
+        <label style={S.label}>Tag</label>
+        <select style={S.select} value={tagTarget} onChange={e=>setTagTarget(e.target.value)}>
+          <option value="">Select person...</option>
+          {tagTargets.map(t=><option key={t.email} value={t.email}>{t.name} — {t.role}</option>)}
+        </select>
+        <label style={{...S.label,marginTop:8}}>Message (optional)</label>
+        <input style={S.input} value={tagMsg} onChange={e=>setTagMsg(e.target.value)} placeholder="Any context for them..."/>
+      </div>}
+
+      {type==="va"&&<div style={{marginTop:10}}>
+        <label style={S.label}>Property *</label>
+        <select style={S.select} value={vaProp} onChange={e=>setVAProp(e.target.value)}>
+          <option value="">Select property...</option>
+          {myProps.map(p=><option key={p.id} value={p.Title||p.id}>{p.PropertyName}</option>)}
+        </select>
+        {assignedVA&&<div style={{fontSize:11,color:C.ok,marginTop:4}}>→ Routes to: {assignedVA.Name}</div>}
+        {vaProp&&!assignedVA&&<div style={{fontSize:11,color:C.er,marginTop:4}}>⚠ No VA assigned to this property</div>}
+        <label style={{...S.label,marginTop:8}}>Category *</label>
+        <select style={S.select} value={vaCategory} onChange={e=>setVACategory(e.target.value)}>
+          <option value="">Select...</option>
+          {catList.map(c=><option key={c}>{c}</option>)}
+        </select>
+        <label style={{...S.label,marginTop:8}}>Task Description *</label>
+        <input style={S.input} value={vaDesc} onChange={e=>setVADesc(e.target.value)}/>
+        <label style={{...S.label,marginTop:8}}>Notes for VA</label>
+        <input style={S.input} value={vaNotes} onChange={e=>setVANotes(e.target.value)} placeholder="Context, resident info, etc."/>
+      </div>}
+
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16,paddingTop:12,borderTop:`1px solid ${C.b1}`}}>
+        <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={onClose}>Cancel</button>
+        <button style={{...S.btn(C.g5,C.dk),...S.sm}} onClick={()=>{
+          if(type==="tag"&&!tagTarget)return;
+          if(type==="va"&&(!vaProp||!vaCategory||!vaDesc))return;
+          if(type==="va"&&!assignedVA)return;
+          onRoute(task,type,{tagTarget,tagMsg,vaCategory,vaDesc,vaNotes,vaProp,assignedVA});
+          onClose();
+        }}>Route →</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ============================================================
+// TASK CARD
+// ============================================================
+function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}){
+  const isOwn=!task.PMEmail||task.PMEmail.toLowerCase()===myEmail?.toLowerCase();
+  const canAct=isOwn||(role==="admin"||role==="regional");
+  const dl=task.DueDate?daysLeft(task.DueDate):null;
+  const overdue=task.Cadence!=="Daily"&&dl!==null&&dl<=0&&task.Status!=="Completed"&&task.Status!=="Missed";
+  const dueSoon=dl!==null&&dl<=3&&dl>0&&task.Status!=="Completed";
+
+  let leftBorder=C.b2;
+  if(task.Status==="Missed")leftBorder=C.er;
+  else if(overdue)leftBorder=C.er;
+  else if(dueSoon)leftBorder=C.wn;
+  else if(task.Status==="Completed")leftBorder=C.ok;
+  else if(task.Priority==="Urgent")leftBorder=C.er;
+  else if(task.Priority==="High")leftBorder=C.wn;
+
+  return<div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.b1}`,opacity:task.Status==="Completed"?0.6:1}}>
+    <span style={{fontSize:15,flexShrink:0}}>{catIcon[task.Category]||"📋"}</span>
+    <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>onOpenDetail&&onOpenDetail(task)}>
+      <div style={{fontSize:13,fontWeight:500,color:task.Status==="Missed"?C.er:C.t7,textDecoration:task.Status==="Completed"?"line-through":"none"}}>
+        {task.Title||task.Description}
+        {task.ContextNotes&&<span style={{fontSize:10,color:C.t4,marginLeft:6,fontWeight:400}}>tap for details ›</span>}
+      </div>
+      <div style={{fontSize:11,color:C.b4,marginTop:2,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+        <span>{task.PropertyName||"General"}</span>
+        {task.Priority!=="Normal"&&<Badge type={task.Priority==="Urgent"?"error":"warning"}>{task.Priority}</Badge>}
+        {task.Status==="Completed"&&<Badge type="success">Done {task.CompletionStatus==="Late"?"(Late)":""}</Badge>}
+        {task.Status==="Missed"&&<Badge type="error">Missed</Badge>}
+        {task.Status==="Help Needed"&&<Badge type="warning">Help Needed</Badge>}
+        {task.Status==="In Progress"&&<Badge type="success" dot>In Progress</Badge>}
+        {overdue&&task.Status!=="Missed"&&<span style={{fontSize:10,color:C.er,fontWeight:700}}>⚠ Overdue</span>}
+        {dueSoon&&task.Status!=="Completed"&&<span style={{fontSize:10,color:C.wn,fontWeight:700}}>Due in {dl}d</span>}
+        {task.DueDate&&task.Status!=="Completed"&&!overdue&&!dueSoon&&<span style={{fontSize:10,color:C.t4}}>Due {fD(task.DueDate)}</span>}
+      </div>
+    </div>
+    {canAct&&task.Status!=="Completed"&&task.Status!=="Missed"&&<div style={{display:"flex",gap:4,flexShrink:0}}>
+      {task.Status==="Queued"&&<button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>onStart&&onStart(task)}>▶ Start</button>}
+      {task.Status==="In Progress"&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>✓ Done</button>}
+      <button style={{...S.btnO(C.wn,C.wn),...S.xs}} onClick={()=>onFlagHelp&&onFlagHelp(task)}>🚩</button>
+    </div>}
+  </div>;
+}
+
+// ============================================================
+// CHECKLIST SECTION
+// ============================================================
+function ChecklistSection({label,icon,tasks,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail,defaultOpen=true}){
+  const[open,setOpen]=useState(defaultOpen);
+  const done=tasks.filter(t=>t.Status==="Completed").length;
+  const total=tasks.length;
+  const pct=total?Math.round(done/total*100):0;
+  return<div style={S.card}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",paddingBottom:open?10:0,borderBottom:open?`1px solid ${C.b1}`:"none",marginBottom:open?8:0}} onClick={()=>setOpen(o=>!o)}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <span>{icon}</span>
+        <span style={{fontSize:13,fontWeight:700,color:C.t7,textTransform:"uppercase",letterSpacing:".05em"}}>{label}</span>
+        <span style={{fontSize:12,color:C.b4}}>{done} of {total} complete</span>
+        <div style={{width:70,height:4,background:C.b1,borderRadius:99,overflow:"hidden"}}>
+          <div style={{width:`${pct}%`,height:"100%",background:pct===100?C.ok:pct>=50?C.wn:C.er,borderRadius:99}}/>
+        </div>
+      </div>
+      <span style={{fontSize:11,color:C.b4}}>{open?"▼":"▶"}</span>
+    </div>
+    {open&&<div>
+      {!tasks.length&&<div style={{textAlign:"center",padding:"14px 0",color:C.b3,fontSize:12,fontStyle:"italic"}}>No tasks for this period.</div>}
+      {tasks.map((t,i)=><TaskCard key={t.id||t._localId||i} task={t} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={onOpenDetail} role={role} myEmail={myEmail}/>)}
+    </div>}
+  </div>;
+}
+
+// ============================================================
+// VA REVIEW SECTION (embedded in My Checklist)
+// ============================================================
+function VAReviewSection({reviews,onReply,onResolve,myEmail}){
+  const[expanded,setExpanded]=useState({});
+  const[replyText,setReplyText]=useState({});
+  const myProps=reviews.filter(r=>r.PMEmail?.toLowerCase()===myEmail?.toLowerCase()||r.AssignedToEmail?.toLowerCase()===myEmail?.toLowerCase());
+  const pending=myProps.filter(r=>r.Status==="Pending"||r.Status==="Responded");
+  if(!pending.length)return null;
+  return<div style={{...S.card,borderLeft:`3px solid ${C.er}`}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+      <div style={{fontSize:14,fontWeight:700,color:C.er}}>🚩 Needs Your Review ({pending.length})</div>
+    </div>
+    {pending.map((r,i)=>{
+      const isOpen=expanded[r.id];
+      const thread=(reviews||[]).filter(x=>x.GroupId===r.GroupId&&x.ActivityType==="ReviewResponse").sort((a,b)=>a.ActivityDate?.localeCompare(b.ActivityDate));
+      const lastResponse=thread[thread.length-1];
+      return<div key={r.id||i} style={{borderBottom:`1px solid ${C.b1}`,paddingBottom:14,marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <div style={{width:32,height:32,borderRadius:"50%",background:C.t7,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>
+            {(r.VAName||r.RequestorName||"VA").split(" ").map(w=>w[0]).slice(0,2).join("")}
+          </div>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:C.t7}}>{r.VAName||r.RequestorName} · {r.PropertyName}</div>
+            <div style={{fontSize:11,color:C.b4}}>{r.Category} · {fDT(r.ActivityDate)} · {(thread.length||0)+1} message{(thread.length||0)>0?"s":""}</div>
+          </div>
+          <Badge type={r.Status==="Responded"?"info":"warning"}>{r.Status==="Responded"?"PM Replied":"Awaiting Response"}</Badge>
+        </div>
+        <div style={{background:C.b1,borderRadius:4,padding:"7px 10px",marginBottom:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.t4,marginBottom:2}}>{r.VAName||"VA"} · {fDT(r.ActivityDate)}</div>
+          <div style={{fontSize:12,color:C.b6}}>"{r.Notes}"</div>
+        </div>
+        {lastResponse&&<div style={{background:C.okb,borderRadius:4,padding:"7px 10px",marginBottom:8}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.ok,marginBottom:2}}>{lastResponse.AssignedByName||"You"} · {fDT(lastResponse.ActivityDate)}</div>
+          <div style={{fontSize:12,color:C.b6}}>"{lastResponse.Notes}"</div>
+        </div>}
+        {thread.length>1&&<button style={{...S.btnO(C.t4,C.t1),...S.xs,marginBottom:8}} onClick={()=>setExpanded(p=>({...p,[r.id]:!p[r.id]}))}>
+          {isOpen?"Hide":"Show full thread"} ({thread.length+1} messages)
+        </button>}
+        {isOpen&&thread.slice(0,-1).map((msg,mi)=><div key={mi} style={{background:msg.VAEmail===r.VAEmail?C.b1:C.okb,borderRadius:4,padding:"6px 10px",marginBottom:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:msg.VAEmail===r.VAEmail?C.t4:C.ok,marginBottom:2}}>{msg.AssignedByName||msg.VAName}</div>
+          <div style={{fontSize:12,color:C.b6}}>{msg.Notes}</div>
+        </div>)}
+        {!isOpen&&<div>
+          <textarea style={{...S.input,minHeight:52,resize:"vertical",marginBottom:6}} placeholder="Type your response..." value={replyText[r.id]||""} onChange={e=>setReplyText(p=>({...p,[r.id]:e.target.value}))}/>
+          <div style={{display:"flex",gap:6}}>
+            <button style={{...S.btn(C.t7),...S.sm,flex:1}} onClick={()=>{if(replyText[r.id]?.trim()){onReply(r.id,replyText[r.id]);setReplyText(p=>({...p,[r.id]:""}));}}} >Reply</button>
+            <button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>{onResolve(r.id,replyText[r.id]||"");setReplyText(p=>({...p,[r.id]:""}));}}>✓ Mark Resolved</button>
+          </div>
+        </div>}
+      </div>;
+    })}
+    <div style={{fontSize:11,color:C.b4,marginTop:4}}>Full conversation threads on the <strong>VA Tasks</strong> tab.</div>
+  </div>;
+}
+
+// ============================================================
+// MY CHECKLIST VIEW
+// ============================================================
+function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComplete,onFlagHelp,onCompleteAdhoc,reviews,fl}){
+  const[detailTask,setDetailTask]=useState(null);
+  const[helpTask,setHelpTask]=useState(null);
+
+  const daily=tasks.filter(t=>t.Cadence==="Daily"&&t.Status!=="Missed");
+  const weekly=tasks.filter(t=>t.Cadence==="Weekly"&&t.Status!=="Missed");
+  const monthly=tasks.filter(t=>t.Cadence==="Monthly"&&t.Status!=="Missed");
+  const adhoc=tasks.filter(t=>t.Cadence==="Ad-Hoc"&&t.Status!=="Completed"&&t.Status!=="Missed");
+  const completedToday=tasks.filter(t=>t.Status==="Completed"&&t.CompletedAt?.slice(0,10)===today());
+  const missed=tasks.filter(t=>t.Status==="Missed");
+  const totalActive=daily.length+weekly.length+monthly.length+adhoc.length;
+  const doneToday=completedToday.length;
+  const onTimePct=completedToday.length?Math.round(completedToday.filter(t=>t.CompletionStatus==="On Time").length/completedToday.length*100):null;
+
+  function handleRoute(task,type,opts){
+    if(type==="peer")onFlagHelp&&onFlagHelp(task,"peer",{});
+    else if(type==="tag")onFlagHelp&&onFlagHelp(task,"tag",opts);
+    else if(type==="va")onFlagHelp&&onFlagHelp(task,"va",opts);
+    fl(type==="peer"?"Added to Help Queue — any available PM can claim it":type==="tag"?`Tagged ${opts.tagTarget} — they've been notified`:`VA task sent to ${opts.assignedVA?.Name}`);
+  }
+
+  return<div style={S.content}>
+    {/* KPI Strip */}
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+      <KPI label="Today Complete" value={doneToday} color={doneToday>0?C.ok:C.b4}/>
+      <KPI label="Remaining" value={totalActive-doneToday} color={totalActive-doneToday>0?C.wn:C.ok}/>
+      {onTimePct!==null&&<KPI label="On Time %" value={`${onTimePct}%`} color={onTimePct>=80?C.ok:onTimePct>=60?C.wn:C.er}/>}
+      <KPI label="Help Needed" value={tasks.filter(t=>t.Status==="Help Needed").length} color={tasks.filter(t=>t.Status==="Help Needed").length?C.wn:C.ok}/>
+      <KPI label="Missed" value={missed.length} color={missed.length?C.er:C.ok}/>
+      <KPI label="Ad-Hoc" value={adhoc.length} color={adhoc.length?C.inf:C.b4}/>
+    </div>
+
+    {/* VA Review Items */}
+    <VAReviewSection reviews={reviews} onReply={(id,note)=>fl("Reply sent")} onResolve={(id,note)=>fl("Resolved")} myEmail={myEmail}/>
+
+    {/* Checklist sections */}
+    <ChecklistSection label="Daily" icon="📋" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>
+    <ChecklistSection label="Weekly" icon="📅" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={!!weekly.filter(t=>t.Status!=="Completed").length}/>
+    <ChecklistSection label="Monthly" icon="🗓" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={!!monthly.filter(t=>t.Status!=="Completed").length}/>
+
+    {adhoc.length>0&&<div style={S.card}>
+      <div style={{...S.cardT,color:C.inf}}>📌 Ad-Hoc Tasks Assigned to You ({adhoc.length})</div>
+      {adhoc.map((t,i)=><TaskCard key={t.id||i} task={t} onStart={onStart} onComplete={onCompleteAdhoc||onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>)}
+    </div>}
+
+    {missed.length>0&&<div style={{...S.card,opacity:.7}}>
+      <div style={{...S.cardT,color:C.er}}>⚠ Missed Tasks ({missed.length})</div>
+      {missed.map((t,i)=><TaskCard key={t.id||i} task={t} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>)}
+    </div>}
+
+    {detailTask&&<TaskDetailModal task={detailTask} onClose={()=>setDetailTask(null)} onComplete={(t,n)=>{onComplete(t,n);setDetailTask(null);}} onFlagHelp={t=>{setHelpTask(t);setDetailTask(null);}} role={role}/>}
+    {helpTask&&<FlagHelpModal task={helpTask} data={data} myEmail={myEmail} myEmp={myEmp} onRoute={handleRoute} onClose={()=>setHelpTask(null)}/>}
+  </div>;
+}
+
+// ============================================================
+// ACTIVE TAB
+// ============================================================
+function ActiveView({tasks,role,myEmail,onStart,onComplete,onFlagHelp,fl}){
+  const[filter,setFilter]=useState("all");
+  const[search,setSearch]=useState("");
+  const[detailTask,setDetailTask]=useState(null);
+  const filtered=tasks.filter(t=>{
+    if(t.Status==="Completed"||t.Status==="Missed")return false;
+    if(filter!=="all"&&t.Category!==filter)return false;
+    if(search&&!((t.Title||t.Description||"").toLowerCase().includes(search.toLowerCase())))return false;
+    return true;
+  });
+  const categories=[...new Set(tasks.map(t=>t.Category))].filter(Boolean).sort();
+  return<div style={S.content}>
+    <div style={{...S.card,padding:"10px 14px",display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+      <div style={{flex:2,minWidth:180}}><label style={S.label}>Search</label><input style={S.input} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search tasks..."/></div>
+      <div style={{flex:1,minWidth:140}}><label style={S.label}>Category</label>
+        <select style={S.select} value={filter} onChange={e=>setFilter(e.target.value)}>
+          <option value="all">All Categories</option>
+          {categories.map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+    </div>
+    <div style={{...S.card,padding:0}}>
+      <div style={{padding:"10px 16px",borderBottom:`1px solid ${C.b1}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:13,fontWeight:600,color:C.t7}}>Active Tasks ({filtered.length})</span>
+      </div>
+      <div style={{padding:"4px 16px 12px"}}>
+        {!filtered.length&&<div style={{textAlign:"center",padding:"24px 0",color:C.b3,fontSize:13}}>No active tasks match your filters.</div>}
+        {filtered.map((t,i)=><TaskCard key={t.id||i} task={t} onStart={onStart} onComplete={onComplete} onFlagHelp={t=>fl("Flag Help modal")} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>)}
+      </div>
+    </div>
+    {detailTask&&<TaskDetailModal task={detailTask} onClose={()=>setDetailTask(null)} onComplete={(t,n)=>{onComplete(t,n);setDetailTask(null);}} role={role}/>}
+  </div>;
+}
+
+// ============================================================
+// HELP QUEUE VIEW
+// ============================================================
+function HelpQueueView({queue,tags,role,myEmail,myEmp,onClaim,onResolveQueue,fl}){
+  const open=queue.filter(q=>q.Status==="Open");
+  const claimed=queue.filter(q=>q.Status==="Claimed");
+  const myTags=tags.filter(t=>t.ToEmail?.toLowerCase()===myEmail?.toLowerCase()&&t.Status!=="Resolved");
+
+  return<div style={S.content}>
+    {myTags.length>0&&<div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
+      <div style={S.cardT}>🏷️ Tagged Items ({myTags.length})</div>
+      {myTags.map((t,i)=><div key={t.id||i} style={{padding:"10px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"flex-start",gap:10}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.t7}}>{t.TaskTitle}</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}>From: <strong>{t.FromName}</strong> · {t.PropertyName||"General"} · {fDT(t.CreatedAt)}</div>
+          {t.Message&&<div style={{fontSize:12,color:C.b6,marginTop:4,fontStyle:"italic"}}>"{t.Message}"</div>}
+        </div>
+        <div style={{display:"flex",gap:4,flexShrink:0}}>
+          <Badge type="gold">{t.Status}</Badge>
+          <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolveQueue&&onResolveQueue("tag",t.id)}>✓ Done</button>
+        </div>
+      </div>)}
+    </div>}
+
+    <div style={S.card}>
+      <div style={{...S.cardT}}>👥 Peer Help Queue — Open ({open.length})</div>
+      {!open.length&&<div style={{textAlign:"center",padding:"20px 0",color:C.b3,fontSize:13,fontStyle:"italic"}}>No open help requests right now.</div>}
+      {open.map((q,i)=><div key={q.id||i} style={{padding:"10px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"flex-start",gap:10}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.t7}}>{q.TaskTitle}</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}><strong>{q.RequestingPMName}</strong> · {q.PropertyName||"General"} · <Badge type={q.Priority==="High"||q.Priority==="Urgent"?"warning":"neutral"}>{q.Priority}</Badge> · {fDT(q.CreatedAt)}</div>
+          {q.Notes&&<div style={{fontSize:12,color:C.b6,marginTop:4,fontStyle:"italic"}}>"{q.Notes}"</div>}
+        </div>
+        {q.RequestingPMEmail?.toLowerCase()!==myEmail?.toLowerCase()&&<button style={{...S.btn(C.t7),...S.xs}} onClick={()=>onClaim&&onClaim(q)}>Claim</button>}
+        {q.RequestingPMEmail?.toLowerCase()===myEmail?.toLowerCase()&&<Badge type="warning">Your request</Badge>}
+      </div>)}
+    </div>
+
+    {claimed.length>0&&<div style={{...S.card,opacity:.7}}>
+      <div style={S.cardT}>⚙ In Progress ({claimed.length})</div>
+      {claimed.map((q,i)=><div key={q.id||i} style={{padding:"8px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"center",gap:10}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,color:C.t7}}>{q.TaskTitle}</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}>Claimed by <strong>{q.ClaimedByName}</strong></div>
+        </div>
+        {q.ClaimedByEmail?.toLowerCase()===myEmail?.toLowerCase()&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolveQueue&&onResolveQueue("peer",q.id)}>✓ Resolve</button>}
+      </div>)}
+    </div>}
+  </div>;
+}
+
+// ============================================================
+// VA REVIEW REPLY BOX (shared component — matches VA Tracker)
+// ============================================================
+function ReviewReplyBox({review,allResponses,myEmail,myName,onReply,onResolve}){
+  const[open,setOpen]=useState(false);
+  const[note,setNote]=useState("");
+  const thread=(allResponses||[]).filter(r=>r.GroupId===review.GroupId).sort((a,b)=>a.ActivityDate?.localeCompare(b.ActivityDate));
+  const lastResp=thread[thread.length-1];
+  return<div>
+    {lastResp&&<div style={{background:C.okb,borderRadius:4,padding:"6px 10px",marginBottom:6}}>
+      <div style={{fontSize:10,fontWeight:700,color:C.ok,marginBottom:2}}>{lastResp.AssignedByName||"PM"} · {fDT(lastResp.ActivityDate)}</div>
+      <div style={{fontSize:12,color:C.b6}}>"{lastResp.Notes}"</div>
+    </div>}
+    {!open&&<div style={{display:"flex",gap:6,marginTop:8}}>
+      <button style={{...S.btn(C.t7),...S.xs}} onClick={()=>setOpen(true)}>Reply</button>
+      <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolve(review.id,"")}>✓ Mark Resolved</button>
+    </div>}
+    {open&&<div style={{marginTop:8}}>
+      <textarea style={{...S.input,minHeight:52,marginBottom:6,resize:"vertical",fontSize:12}} value={note} onChange={e=>setNote(e.target.value)} placeholder="Type your response..."/>
+      <div style={{display:"flex",gap:6}}>
+        <button style={{...S.btn(C.t7),...S.sm,flex:1}} onClick={()=>{if(note.trim()){onReply(review.id,note);setNote("");setOpen(false);}}}>Send Reply</button>
+        <button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>{onResolve(review.id,note||"");setNote("");setOpen(false);}}>Reply & Resolve</button>
+        <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>{setNote("");setOpen(false);}}>Cancel</button>
+      </div>
+    </div>}
+  </div>;
+}
+
+// ============================================================
+// VA TASKS TAB — shared component (matches VA Tracker Manager View)
+// ============================================================
+function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview,onResolveReview,onSubmitVATask,fl}){
+  const[prop,setProp]=useState("");
+  const[cat,setCat]=useState("");
+  const[pri,setPri]=useState("Normal");
+  const[desc,setDesc]=useState("");
+  const[notes,setNotes]=useState("");
+
+  const isLeslie=myEmp?.JobTitle==="AR Specialist"||(role==="ar");
+  const allProps=data?.properties||[];
+  const myPortfolioProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{const pm=data?.pms?.find(e=>e.Email?.toLowerCase()===myEmail?.toLowerCase());return pm||true;});
+
+  const pendingReviews=(reviews||[]).filter(r=>(r.ActivityType==="Review"||r.ActivityType==="ReviewRequest")&&r.PMEmail?.toLowerCase()===myEmail?.toLowerCase()&&r.Status!=="Resolved");
+  const myActivityProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{
+    const portfolio=data?.portfolios?.find(pf=>pf.PropertyId===p.Title||pf.PropertyId===p.id);
+    return portfolio&&data?.vas?.find(v=>v.Email?.toLowerCase()===portfolio.VAEmail?.toLowerCase());
+  });
+
+  const vaActivities=(data?.vaActivities||[]).filter(a=>{
+    if(role==="ar")return a.AssignedByEmail?.toLowerCase()===myEmail?.toLowerCase();
+    if(role==="admin"||role==="regional")return true;
+    return myActivityProps.some(p=>p.Title===a.PropertyName||p.PropertyName===a.PropertyName);
+  });
+
+  const selectedProp=allProps.find(p=>p.Title===prop||p.id===prop);
+  const routedVA=selectedProp&&data?.portfolios?.find(pf=>pf.PropertyId===selectedProp.Title||pf.PropertyId===selectedProp.id);
+  const routedVAName=routedVA&&data?.vas?.find(v=>v.Email?.toLowerCase()===routedVA.VAEmail?.toLowerCase())?.Name;
+
+  function submit(){
+    if(!prop||!cat||!desc.trim()){fl("Please fill in Property, Category, and Task");return;}
+    if(!routedVA){fl("No VA assigned to this property");return;}
+    onSubmitVATask&&onSubmitVATask({prop,cat,pri,desc,notes,routedVA});
+    fl(`Task sent to ${routedVAName} — visible in VA Tracker immediately`);
+    setProp("");setCat("");setPri("Normal");setDesc("");setNotes("");
+  }
+
+  return<div style={S.content}>
+    {/* Needs Your Review */}
+    {pendingReviews.length>0&&<div style={{...S.card,borderTop:`3px solid ${C.er}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:14,fontWeight:700,color:C.er}}>🚩 Needs Your Review — {pendingReviews.length} items</div>
+      </div>
+      <div style={{fontSize:12,color:C.b4,marginBottom:12}}>VAs flagged these tasks and are waiting on your response</div>
+      {pendingReviews.map((r,i)=><div key={r.id||i} style={{borderBottom:`1px solid ${C.b1}`,paddingBottom:14,marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <div style={{width:34,height:34,borderRadius:"50%",background:C.t7,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>
+            {(r.VAName||"VA").split(" ").map(w=>w[0]).slice(0,2).join("")}
+          </div>
+          <div>
+            <div style={{fontSize:14,fontWeight:700,color:C.t7}}>{r.VAName} · {r.PropertyName}</div>
+            <div style={{fontSize:11,color:C.b4}}>{r.Category} · {fDT(r.ActivityDate)} · <strong>{((allResponses||[]).filter(x=>x.GroupId===r.GroupId).length||0)+1} messages</strong></div>
+          </div>
+        </div>
+        <div style={{background:C.b1,borderRadius:4,padding:"7px 10px",marginBottom:6}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.t4,marginBottom:2}}>{r.VAName} · {fDT(r.ActivityDate)}</div>
+          <div style={{fontSize:13,color:C.b6}}>"{r.Notes}"</div>
+        </div>
+        <ReviewReplyBox review={r} allResponses={allResponses} myEmail={myEmail} myName={myEmp?.Name} onReply={onReplyReview} onResolve={onResolveReview}/>
+      </div>)}
+    </div>}
+
+    {/* Property Cards */}
+    <div style={{...S.card}}>
+      <div style={S.cardT}>📋 Currently Active on Your Portfolio</div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+        {myActivityProps.slice(0,6).map((p,i)=>{
+          const acts=vaActivities.filter(a=>a.PropertyName===p.PropertyName||a.PropertyName===p.Title);
+          const done=acts.filter(a=>a.Status==="Completed").length;
+          const pending=acts.filter(a=>a.Status==="Queued"||a.Status==="In Progress").length;
+          const blocked=acts.filter(a=>a.Status==="Blocked").length;
+          const portfolio=data?.portfolios?.find(pf=>pf.PropertyId===p.Title||pf.PropertyId===p.id);
+          const va=portfolio&&data?.vas?.find(v=>v.Email?.toLowerCase()===portfolio.VAEmail?.toLowerCase());
+          return<div key={p.id||i} style={{...S.card,flex:"1 1 220px",minWidth:200,padding:12,borderLeft:`3px solid ${blocked?C.er:pending?C.wn:C.ok}`,marginBottom:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
+              <div style={{fontSize:14,fontWeight:600,color:C.t7}}>{p.PropertyName||p.Title}</div>
+              {va&&<Badge type="success">{va.Name?.split(" ")[0]}</Badge>}
+            </div>
+            <div style={{display:"flex",gap:6}}>
+              {[{l:"Done (7d)",v:done,bg:C.t0,c:C.t7},{l:"Pending",v:pending,bg:C.wnb,c:C.wn},{l:"Blocked",v:blocked,bg:C.erb,c:C.er}].map((s,si)=><div key={si} style={{flex:1,textAlign:"center",padding:"5px 3px",background:s.bg,borderRadius:4}}>
+                <div style={{fontSize:16,fontWeight:700,fontFamily:mono,color:s.c}}>{s.v}</div>
+                <div style={{fontSize:9,color:C.b4,textTransform:"uppercase",letterSpacing:".03em"}}>{s.l}</div>
+              </div>)}
+            </div>
+            {blocked>0&&<div style={{fontSize:11,color:C.er,marginTop:6}}>⚠ {blocked} blocked — needs your response</div>}
+          </div>;
+        })}
+      </div>
+    </div>
+
+    {/* Submit Task for VA */}
+    <div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
+      <div style={S.cardT}>📌 {isLeslie?"Request VA Help":"Submit Task for VA"}</div>
+      <div style={{fontSize:12,color:C.b4,marginBottom:12}}>Select a property — routes to that property's assigned VA in VA Tracker immediately.</div>
+      <div style={{...S.row,marginBottom:10}}>
+        <div style={{flex:2,minWidth:170}}>
+          <label style={S.label}>Property *</label>
+          <select style={S.select} value={prop} onChange={e=>setProp(e.target.value)}>
+            <option value="">Select property...</option>
+            {allProps.map(p=><option key={p.id} value={p.Title||p.id}>{p.PropertyName||p.Title}</option>)}
+          </select>
+          {prop&&routedVAName&&<div style={{fontSize:11,color:C.ok,marginTop:3}}>→ Routes to: {routedVAName}</div>}
+          {prop&&!routedVAName&&<div style={{fontSize:11,color:C.er,marginTop:3}}>⚠ No VA assigned to this property</div>}
+        </div>
+        <div style={{flex:2,minWidth:140}}>
+          <label style={S.label}>Category *</label>
+          <select style={S.select} value={cat} onChange={e=>setCat(e.target.value)}>
+            <option value="">Select...</option>
+            {catList.map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{minWidth:90,maxWidth:110}}>
+          <label style={S.label}>Priority</label>
+          <select style={S.select} value={pri} onChange={e=>setPri(e.target.value)}>
+            {["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{marginBottom:8}}><label style={S.label}>Task *</label><input style={S.input} value={desc} onChange={e=>setDesc(e.target.value)} placeholder="What needs to be done..."/></div>
+      <div style={{marginBottom:12}}><label style={S.label}>Notes for VA</label><input style={S.input} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Additional context (optional)"/></div>
+      <button style={{...S.btn(C.g5,C.dk),width:"100%",minHeight:42}} onClick={submit}>📌 Submit Task</button>
+    </div>
+
+    {/* Recent Activity */}
+    <div style={S.card}>
+      <div style={S.cardT}>Recent Activity — {isLeslie?"Tasks I've Sent":"My Properties"} (7 days)</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>{["Date","Property","VA","Task","Status"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>
+            {vaActivities.slice(0,20).map((a,i)=><tr key={a.id||i} style={{background:i%2===0?C.wh:C.pg}}>
+              <td style={{...S.td,whiteSpace:"nowrap"}}>{fD(a.ActivityDate)}</td>
+              <td style={{...S.td,fontSize:11}}>{a.PropertyName}</td>
+              <td style={{...S.td,fontWeight:500}}>{a.VAName}</td>
+              <td style={S.td}>{a.Title?.replace(/^Task-/,"")}<br/>{a.Notes&&<span style={{fontSize:10,color:C.b4}}>💬 {a.Notes?.slice(0,60)}</span>}</td>
+              <td style={S.td}><Badge type={a.Status==="Completed"?"success":a.Status==="Blocked"?"error":a.Status==="Queued"?"neutral":"warning"}>{a.Status}</Badge></td>
+            </tr>)}
+            {!vaActivities.length&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No activity in the last 7 days.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>;
+}
+
+// ============================================================
+// AR TASKS VIEW (Leslie)
+// ============================================================
+function ARTasksView({tasks,vaActivities,data,myEmail,myEmp,role,onStart,onComplete,onFlagHelp,onSubmitVATask,fl}){
+  const arTasks=tasks.filter(t=>t.Status!=="Missed");
+  const daily=arTasks.filter(t=>t.Cadence==="Daily");
+  const weekly=arTasks.filter(t=>t.Cadence==="Weekly");
+  const monthly=arTasks.filter(t=>t.Cadence==="Monthly");
+  const[detailTask,setDetailTask]=useState(null);
+
+  return<div style={S.content}>
+    <div style={{marginBottom:14}}>
+      <div style={{fontSize:17,fontWeight:700,color:C.t7}}>My Tasks</div>
+      <div style={{fontSize:12,color:C.b4}}>AR Specialist · Recurring tasks only</div>
+    </div>
+    <ChecklistSection label="Daily" icon="📋" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>
+    {weekly.length>0&&<ChecklistSection label="Weekly" icon="📅" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={false}/>}
+    {monthly.length>0&&<ChecklistSection label="Monthly" icon="🗓" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={false}/>}
+    {detailTask&&<TaskDetailModal task={detailTask} onClose={()=>setDetailTask(null)} onComplete={(t,n)=>{onComplete(t,n);setDetailTask(null);}} role={role}/>}
+  </div>;
+}
+
+// ============================================================
+// REGIONAL OVERVIEW
+// ============================================================
+function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,fl}){
+  const[pmFilter,setPMFilter]=useState("all");
+  const pms=data?.pms||[];
+  const filteredTasks=allTasks.filter(t=>{
+    if(!inRange(t.ActivityDate||t.DueDate,dfFrom,dfTo))return false;
+    if(pmFilter!=="all"&&t.PMEmail?.toLowerCase()!==pmFilter)return false;
+    return true;
+  });
+  const total=filteredTasks.length;
+  const done=filteredTasks.filter(t=>t.Status==="Completed").length;
+  const late=filteredTasks.filter(t=>t.CompletionStatus==="Late").length;
+  const missed=filteredTasks.filter(t=>t.Status==="Missed").length;
+  const onTimePct=done?Math.round((done-late)/done*100):null;
+  const openHelp=queue.filter(q=>q.Status==="Open").length;
+
+  const pmStats=pms.map(pm=>{
+    const pmTasks=filteredTasks.filter(t=>t.PMEmail?.toLowerCase()===pm.Email?.toLowerCase());
+    const pmDone=pmTasks.filter(t=>t.Status==="Completed").length;
+    const pmLate=pmTasks.filter(t=>t.CompletionStatus==="Late").length;
+    const pmMissed=pmTasks.filter(t=>t.Status==="Missed").length;
+    return{...pm,total:pmTasks.length,done:pmDone,late:pmLate,missed:pmMissed,onTimePct:pmDone?Math.round((pmDone-pmLate)/pmDone*100):null};
+  });
+
+  return<div style={S.content}>
+    {/* Filters */}
+    <div style={{...S.card,padding:"10px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+      <div><label style={S.label}>From</label><input type="date" style={{...S.input,width:140}} value={dfFrom} onChange={e=>setDfFrom(e.target.value)}/></div>
+      <div><label style={S.label}>To</label><input type="date" style={{...S.input,width:140}} value={dfTo} onChange={e=>setDfTo(e.target.value)}/></div>
+      <div style={{flex:1,minWidth:160}}><label style={S.label}>PM</label>
+        <select style={S.select} value={pmFilter} onChange={e=>setPMFilter(e.target.value)}>
+          <option value="all">All PMs</option>
+          {pms.map(pm=><option key={pm.Email} value={pm.Email?.toLowerCase()}>{pm.Name}</option>)}
+        </select>
+      </div>
+      <div style={{display:"flex",gap:5}}>
+        {[{l:"7d",d:7},{l:"14d",d:14},{l:"30d",d:30}].map(p=><button key={p.l} style={{...S.btnO(C.t7,C.t1),...S.xs}} onClick={()=>{const f=new Date();f.setDate(f.getDate()-p.d);setDfFrom(f.toISOString().slice(0,10));setDfTo(today());}}>{p.l}</button>)}
+      </div>
+    </div>
+
+    {/* KPIs */}
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+      <KPI label="Generated" value={total}/>
+      <KPI label="Completed" value={done} color={C.ok}/>
+      <KPI label="On Time %" value={onTimePct!==null?`${onTimePct}%`:"—"} color={onTimePct===null?C.b4:onTimePct>=80?C.ok:onTimePct>=60?C.wn:C.er}/>
+      <KPI label="Late" value={late} color={late?C.wn:C.ok}/>
+      <KPI label="Missed" value={missed} color={missed?C.er:C.ok}/>
+      <KPI label="Help Queue" value={openHelp} color={openHelp?C.wn:C.ok}/>
+    </div>
+
+    {/* PM Compliance Table */}
+    <div style={S.card}>
+      <div style={S.cardT}>PM Compliance Breakdown</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>{["PM","Generated","Completed","On Time%","Late","Missed"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>
+            {pmStats.map((pm,i)=><tr key={pm.Email||i} style={{background:i%2===0?C.wh:C.pg}}>
+              <td style={{...S.td,fontWeight:600}}>{pm.Name}</td>
+              <td style={S.td}>{pm.total}</td>
+              <td style={S.td}>{pm.done}</td>
+              <td style={S.td}><span style={{fontWeight:700,color:pm.onTimePct===null?C.b4:pm.onTimePct>=80?C.ok:pm.onTimePct>=60?C.wn:C.er}}>{pm.onTimePct!==null?`${pm.onTimePct}%`:"—"}</span></td>
+              <td style={{...S.td,color:pm.late?C.wn:C.ok}}>{pm.late}</td>
+              <td style={{...S.td,color:pm.missed?C.er:C.ok}}>{pm.missed}</td>
+            </tr>)}
+            {!pmStats.length&&<tr><td colSpan={6} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No data for this period.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {/* Help Queue Summary */}
+    {queue.filter(q=>q.Status==="Open").length>0&&<div style={S.card}>
+      <div style={S.cardT}>Open Help Queue ({queue.filter(q=>q.Status==="Open").length})</div>
+      {queue.filter(q=>q.Status==="Open").map((q,i)=><div key={q.id||i} style={{padding:"8px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"center",gap:10}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,color:C.t7,fontWeight:500}}>{q.TaskTitle}</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}>{q.RequestingPMName} · {q.PropertyName||"General"} · {fDT(q.CreatedAt)}</div>
+        </div>
+        <Badge type={q.Priority==="High"||q.Priority==="Urgent"?"warning":"neutral"}>{q.Priority}</Badge>
+      </div>)}
+    </div>}
+  </div>;
+}
+
+// ============================================================
+// HISTORY VIEW (Regional + Admin only)
+// ============================================================
+function HistoryView({allTasks,pms,role,dfFrom,dfTo,setDfFrom,setDfTo}){
+  const[pmFilter,setPMFilter]=useState("all");
+  const[statusFilter,setStatusFilter]=useState("all");
+  const filtered=allTasks.filter(t=>{
+    if(!inRange(t.ActivityDate||t.CompletedAt||t.DueDate,dfFrom,dfTo))return false;
+    if(pmFilter!=="all"&&t.PMEmail?.toLowerCase()!==pmFilter)return false;
+    if(statusFilter!=="all"&&t.Status!==statusFilter)return false;
+    return true;
+  });
+
+  return<div style={S.content}>
+    <div style={{...S.card,padding:"10px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+      <div><label style={S.label}>From</label><input type="date" style={{...S.input,width:140}} value={dfFrom} onChange={e=>setDfFrom(e.target.value)}/></div>
+      <div><label style={S.label}>To</label><input type="date" style={{...S.input,width:140}} value={dfTo} onChange={e=>setDfTo(e.target.value)}/></div>
+      <div style={{flex:1,minWidth:140}}><label style={S.label}>PM</label>
+        <select style={S.select} value={pmFilter} onChange={e=>setPMFilter(e.target.value)}>
+          <option value="all">All PMs</option>
+          {pms.map(pm=><option key={pm.Email} value={pm.Email?.toLowerCase()}>{pm.Name}</option>)}
+        </select>
+      </div>
+      <div style={{flex:1,minWidth:130}}><label style={S.label}>Status</label>
+        <select style={S.select} value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
+          <option value="all">All Statuses</option>
+          {["Completed","Missed","In Progress","Queued"].map(s=><option key={s}>{s}</option>)}
+        </select>
+      </div>
+    </div>
+    <div style={{...S.card,padding:0,overflow:"hidden"}}>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>{["Date","PM","Task","Category","Property","Cadence","Status","Completion"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>
+            {filtered.slice(0,200).map((t,i)=><tr key={t.id||i} style={{background:i%2===0?C.wh:C.pg}}>
+              <td style={{...S.td,whiteSpace:"nowrap"}}>{fD(t.ActivityDate||t.CompletedAt||t.DueDate)}</td>
+              <td style={{...S.td,fontWeight:500,whiteSpace:"nowrap"}}>{t.PMName}</td>
+              <td style={{...S.td,maxWidth:240}}>{t.Title||t.Description}</td>
+              <td style={{...S.td,fontSize:11}}>{t.Category}</td>
+              <td style={{...S.td,fontSize:11}}>{t.PropertyName||"General"}</td>
+              <td style={S.td}><Badge type="neutral">{t.Cadence}</Badge></td>
+              <td style={S.td}><Badge type={t.Status==="Completed"?"success":t.Status==="Missed"?"error":"warning"}>{t.Status}</Badge></td>
+              <td style={S.td}>{t.CompletionStatus&&<Badge type={t.CompletionStatus==="On Time"?"success":t.CompletionStatus==="Late"?"warning":"error"}>{t.CompletionStatus}</Badge>}</td>
+            </tr>)}
+            {!filtered.length&&<tr><td colSpan={8} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No history records for this period.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {filtered.length>200&&<div style={{padding:"8px 14px",fontSize:11,color:C.b4,borderTop:`1px solid ${C.b1}`}}>Showing first 200 of {filtered.length} records.</div>}
+    </div>
+  </div>;
+}
+
+// ============================================================
+// ADMIN TAB
+// ============================================================
+function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,fl}){
+  const[editId,setEditId]=useState(null);
+  const[editFields,setEditFields]=useState({});
+  const[addOpen,setAddOpen]=useState(false);
+  const[adhocOpen,setAdhocOpen]=useState(false);
+  const[newRec,setNewRec]=useState({desc:"",appliesTo:"All PMs",cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:2,dayOfMonth:1,dueDayOfMonth:5});
+  const[newAdhoc,setNewAdhoc]=useState({desc:"",assignedTo:"",category:"Admin/Other",priority:"Normal",propertyId:"",dueDate:"",contextNotes:""});
+  const[adhocEditId,setAdhocEditId]=useState(null);
+  const[adhocEditFields,setAdhocEditFields]=useState({});
+
+  const pms=data?.pms||[];
+  const allProps=data?.properties||[];
+  const people=[{label:"All PMs",val:"all"},...pms.map(p=>({label:`${p.Name} (PM)`,val:p.Email})),{label:"Leslie (AR Specialist)",val:"leslie"},{label:"Cara Munson (Regional)",val:"cara"}];
+  const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
+
+  function startEdit(rec){
+    setEditId(rec.id);
+    setEditFields({desc:rec.Description||"",appliesTo:rec.AppliesToName||"All PMs",cadence:rec.Cadence||"Daily",category:rec.Category||"",priority:rec.Priority||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5});
+  }
+
+  function saveEdit(rec){
+    onSaveRec&&onSaveRec(rec.id,editFields);
+    setEditId(null);
+    fl("Recurring task updated — changes take effect at next generation");
+  }
+
+  function submitNewRec(){
+    if(!newRec.desc.trim()||!newRec.category){fl("Description and Category are required");return;}
+    onAddRec&&onAddRec(newRec);
+    setAddOpen(false);
+    setNewRec({desc:"",appliesTo:"All PMs",cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:2,dayOfMonth:1,dueDayOfMonth:5});
+    fl("Recurring task added — will generate on next cycle");
+  }
+
+  function submitAdhoc(){
+    if(!newAdhoc.desc.trim()||!newAdhoc.assignedTo||!newAdhoc.dueDate){fl("Assigned To, Description, and Due Date are required");return;}
+    onAssignAdhoc&&onAssignAdhoc(newAdhoc);
+    setAdhocOpen(false);
+    setNewAdhoc({desc:"",assignedTo:"",category:"Admin/Other",priority:"Normal",propertyId:"",dueDate:"",contextNotes:""});
+    fl("Ad-hoc task assigned successfully");
+  }
+
+  function startAdhocEdit(t){
+    setAdhocEditId(t.id);
+    setAdhocEditFields({desc:t.Description||t.Title||"",assignedTo:t.PMEmail||"",category:t.Category||"",priority:t.Priority||"Normal",propertyId:t.PropertyId||"",dueDate:t.DueDate?.slice(0,10)||"",contextNotes:t.ContextNotes||""});
+  }
+
+  function saveAdhocEdit(t){
+    onSaveRec&&onSaveRec(t.id,{...adhocEditFields,_type:"adhoc"});
+    setAdhocEditId(null);
+    fl("Ad-hoc task updated");
+  }
+
+  const inputS={...S.input,marginBottom:0};
+  const selS={...S.select,marginBottom:0};
+  const fgS={marginBottom:8};
+
+  function RField({label,children}){return<div style={fgS}><label style={S.label}>{label}</label>{children}</div>;}
+
+  function EditPanel({fields,setFields,isWeekly,isMonthly}){
+    return<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:14,marginTop:8}}>
+      <RField label="Task Description"><input style={inputS} value={fields.desc} onChange={e=>setFields(p=>({...p,desc:e.target.value}))}/></RField>
+      <div style={{...S.row,marginBottom:8}}>
+        <div style={{flex:2}}><label style={S.label}>Applies To</label><select style={selS} value={fields.appliesTo} onChange={e=>setFields(p=>({...p,appliesTo:e.target.value}))}>{people.map(p=><option key={p.val} value={p.label}>{p.label}</option>)}</select></div>
+        <div style={{flex:1}}><label style={S.label}>Category</label><select style={selS} value={fields.category} onChange={e=>setFields(p=>({...p,category:e.target.value}))}><option value="">Select...</option>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
+        <div style={{flex:1}}><label style={S.label}>Priority</label><select style={selS} value={fields.priority} onChange={e=>setFields(p=>({...p,priority:e.target.value}))}>{["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}</select></div>
+      </div>
+      {!isWeekly&&!isMonthly&&<RField label="On-Time Cutoff"><select style={selS} value={fields.onTimeCutoff} onChange={e=>setFields(p=>({...p,onTimeCutoff:e.target.value}))}>{["15:00","16:00","17:00","18:00"].map(v=><option key={v} value={v}>{v}</option>)}</select></RField>}
+      {isWeekly&&<div style={{...S.row,marginBottom:8}}>
+        <div style={{flex:1}}><label style={S.label}>Generates On</label><select style={selS} value={fields.dayOfWeek} onChange={e=>setFields(p=>({...p,dayOfWeek:+e.target.value}))}>{days.map((d,i)=><option key={i} value={i}>{d}</option>)}</select></div>
+        <div style={{flex:1}}><label style={S.label}>Due By</label><select style={selS} value={fields.dueDayOfWeek} onChange={e=>setFields(p=>({...p,dueDayOfWeek:+e.target.value}))}>{days.map((d,i)=><option key={i} value={i}>{d}</option>)}</select></div>
+      </div>}
+      {isMonthly&&<div style={{...S.row,marginBottom:8}}>
+        <div style={{flex:1}}><label style={S.label}>Generates (day)</label><select style={selS} value={fields.dayOfMonth} onChange={e=>setFields(p=>({...p,dayOfMonth:+e.target.value}))}>{[1,2,3,5,10,15,20,25].map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+        <div style={{flex:1}}><label style={S.label}>Due By (day)</label><select style={selS} value={fields.dueDayOfMonth} onChange={e=>setFields(p=>({...p,dueDayOfMonth:+e.target.value}))}>{[1,3,5,7,10,15,20].map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+      </div>}
+      <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}>— visible to recipient when they tap the task</span></>}>
+        <textarea style={{...inputS,minHeight:70,resize:"vertical"}} value={fields.contextNotes} onChange={e=>setFields(p=>({...p,contextNotes:e.target.value}))} placeholder="Step-by-step instructions, AppFolio navigation, escalation rules, SOP links..."/>
+      </RField>
+      <RField label="Admin Notes (not shown to recipient)">
+        <input style={inputS} value={fields.adminNotes||""} onChange={e=>setFields(p=>({...p,adminNotes:e.target.value}))} placeholder="Why this task exists, compliance notes, etc."/>
+      </RField>
+    </div>;
+  }
+
+  // Group recurring defs by cadence+assignee
+  const daily=recurringDefs.filter(r=>r.Cadence==="Daily");
+  const weekly=recurringDefs.filter(r=>r.Cadence==="Weekly");
+  const monthly=recurringDefs.filter(r=>r.Cadence==="Monthly");
+
+  function RecGroup({label,items,isWeekly,isMonthly}){
+    if(!items.length)return null;
+    return<div>
+      <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",letterSpacing:".05em",margin:"14px 0 6px",paddingBottom:4,borderBottom:`1px solid ${C.t1}`}}>{label}</div>
+      {items.map((rec,i)=>{
+        const isEditing=editId===rec.id;
+        const sub=rec.Cadence==="Daily"?`${rec.AppliesToName||"All PMs"} · Daily · Cutoff: ${rec.OnTimeCutoff||"17:00"}`:rec.Cadence==="Weekly"?`${rec.AppliesToName||"All PMs"} · Weekly · Gen: ${days[rec.DayOfWeek??0]} · Due: ${days[rec.DueDayOfWeek??2]}`:`${rec.AppliesToName||"All PMs"} · Monthly · Gen ${rec.DayOfMonth??1}th · Due ${rec.DueDayOfMonth??5}th`;
+        return<div key={rec.id||i} style={{borderBottom:`1px solid ${C.b1}`}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0"}}>
+            <span style={{fontSize:14,marginTop:1,flexShrink:0}}>{catIcon[rec.Category]||"📋"}</span>
+            <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>isEditing?setEditId(null):startEdit(rec)}>
+              <div style={{fontSize:13,fontWeight:500,color:rec.IsActive===false?C.b3:C.t7,opacity:rec.IsActive===false?.6:1}}>{rec.Description}</div>
+              <div style={{fontSize:11,color:C.b4,marginTop:2}}>{sub}</div>
+              {rec.ContextNotes&&!isEditing&&<div style={{fontSize:10,color:C.b3,marginTop:2,fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:420}}>"{rec.ContextNotes.slice(0,80)}{rec.ContextNotes.length>80?"…":""}"</div>}
+            </div>
+            <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <Badge type={rec.IsActive===false?"warning":"success"}>{rec.IsActive===false?"Paused":"Active"}</Badge>
+              <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>isEditing?setEditId(null):startEdit(rec)}>{isEditing?"✕ Cancel":"✎ Edit"}</button>
+              <button style={{...S.btnO(rec.IsActive===false?C.ok:C.wn,rec.IsActive===false?C.ok:C.wn),...S.xs}} onClick={()=>onToggleRec&&onToggleRec(rec)}>{rec.IsActive===false?"▶ On":"Pause"}</button>
+              <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Delete this recurring task?"))onDeleteRec&&onDeleteRec(rec);}}>✕</button>
+            </div>
+          </div>
+          {isEditing&&<EditPanel fields={editFields} setFields={setEditFields} isWeekly={isWeekly} isMonthly={isMonthly}/>}
+          {isEditing&&<div style={{display:"flex",gap:6,justifyContent:"flex-end",padding:"8px 0"}}>
+            <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setEditId(null)}>Cancel</button>
+            <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveEdit(rec)}>✓ Save Changes</button>
+          </div>}
+        </div>;
+      })}
+    </div>;
+  }
+
+  const actAdhoc=adhocTasks.filter(t=>t.Status!=="Completed"&&t.Status!=="Missed");
+  const doneAdhoc=adhocTasks.filter(t=>t.Status==="Completed"||t.Status==="Missed");
+
+  return<div style={S.content}>
+    {/* Recurring Task Management */}
+    <div style={S.card}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:4}}>
+        <div style={S.cardT}>📋 Recurring Task Management</div>
+        <button style={{...S.btn(C.hdr),...S.sm}} onClick={()=>setAddOpen(o=>!o)}>{addOpen?"✕ Cancel":"+ Add Task"}</button>
+      </div>
+      {addOpen&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.t7,marginBottom:8}}>New Recurring Task</div>
+        <div style={{...S.row,marginBottom:8}}>
+          <div style={{flex:1}}><label style={S.label}>Cadence *</label><select style={selS} value={newRec.cadence} onChange={e=>setNewRec(p=>({...p,cadence:e.target.value}))}>{["Daily","Weekly","Monthly"].map(c=><option key={c}>{c}</option>)}</select></div>
+        </div>
+        <EditPanel fields={newRec} setFields={setNewRec} isWeekly={newRec.cadence==="Weekly"} isMonthly={newRec.cadence==="Monthly"}/>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
+          <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAddOpen(false)}>Cancel</button>
+          <button style={{...S.btn(C.ok),...S.sm}} onClick={submitNewRec}>✓ Add Recurring Task</button>
+        </div>
+      </div>}
+      <RecGroup label="All PMs — Daily" items={daily.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)}/>
+      {pms.map(pm=><RecGroup key={pm.Email} label={`${pm.Name} — Daily`} items={daily.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase()&&r.Cadence==="Daily")}/>)}
+      <RecGroup label="All PMs — Weekly" items={weekly.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)} isWeekly/>
+      {pms.map(pm=><RecGroup key={pm.Email+"w"} label={`${pm.Name} — Weekly`} items={weekly.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase())} isWeekly/>)}
+      <RecGroup label="All PMs — Monthly" items={monthly.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)} isMonthly/>
+      {pms.map(pm=><RecGroup key={pm.Email+"m"} label={`${pm.Name} — Monthly`} items={monthly.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase())} isMonthly/>)}
+    </div>
+
+    {/* Assign Ad-Hoc Task */}
+    <div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:12}}>
+        <div>
+          <div style={S.cardT}>📌 Assign Ad-Hoc Task</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}>One-time tasks with a due date — stay in queue until completed or marked missed</div>
+        </div>
+        <button style={{...S.btn(C.g5,C.dk),...S.sm}} onClick={()=>setAdhocOpen(o=>!o)}>{adhocOpen?"✕ Cancel":"+ Assign Task"}</button>
+      </div>
+      {adhocOpen&&<div style={{background:C.g0,border:`1px solid ${C.g1}`,borderRadius:6,padding:14,marginBottom:14}}>
+        <div style={{...S.row,marginBottom:8}}>
+          <div style={{flex:2}}><label style={S.label}>Assign To *</label>
+            <select style={selS} value={newAdhoc.assignedTo} onChange={e=>setNewAdhoc(p=>({...p,assignedTo:e.target.value}))}>
+              <option value="">Select person...</option>
+              <option value="all">All PMs</option>
+              {pms.map(pm=><option key={pm.Email} value={pm.Email}>{pm.Name} (PM)</option>)}
+              <option value="leslie">Leslie (AR Specialist)</option>
+              <option value="cara">Cara Munson (Regional)</option>
+            </select>
+          </div>
+          <div style={{flex:2}}><label style={S.label}>Category *</label><select style={selS} value={newAdhoc.category} onChange={e=>setNewAdhoc(p=>({...p,category:e.target.value}))}>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
+          <div style={{flex:1}}><label style={S.label}>Priority</label><select style={selS} value={newAdhoc.priority} onChange={e=>setNewAdhoc(p=>({...p,priority:e.target.value}))}>{["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}</select></div>
+        </div>
+        <div style={{...S.row,marginBottom:8}}>
+          <div style={{flex:2}}><label style={S.label}>Property</label><select style={selS} value={newAdhoc.propertyId} onChange={e=>setNewAdhoc(p=>({...p,propertyId:e.target.value}))}><option value="">General</option>{allProps.map(p=><option key={p.id} value={p.Title||p.id}>{p.PropertyName||p.Title}</option>)}</select></div>
+          <div style={{flex:1}}><label style={S.label}>Due Date *</label><input type="date" style={inputS} value={newAdhoc.dueDate} onChange={e=>setNewAdhoc(p=>({...p,dueDate:e.target.value}))}/></div>
+        </div>
+        <RField label="Task Description *"><input style={inputS} value={newAdhoc.desc} onChange={e=>setNewAdhoc(p=>({...p,desc:e.target.value}))} placeholder="What needs to be done..."/></RField>
+        <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}>— visible to recipient when they tap the task</span></>}>
+          <textarea style={{...inputS,minHeight:60,resize:"vertical"}} value={newAdhoc.contextNotes} onChange={e=>setNewAdhoc(p=>({...p,contextNotes:e.target.value}))} placeholder="Background, instructions, links, relevant history..."/>
+        </RField>
+        <div style={{background:C.g0,border:`1px solid ${C.g1}`,borderRadius:4,padding:"7px 10px",marginBottom:10,fontSize:11,color:C.g7}}>⏳ This task stays in the recipient's queue until they complete it — or you mark it missed. It will not auto-miss.</div>
+        <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
+          <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAdhocOpen(false)}>Cancel</button>
+          <button style={{...S.btn(C.g5,C.dk),...S.sm}} onClick={submitAdhoc}>📌 Assign Task</button>
+        </div>
+      </div>}
+
+      {/* Active adhoc list */}
+      <div style={{fontSize:11,fontWeight:700,color:C.b4,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Active Ad-Hoc Tasks ({actAdhoc.length})</div>
+      {!actAdhoc.length&&<div style={{textAlign:"center",padding:"16px 0",color:C.b3,fontSize:13,fontStyle:"italic"}}>No active ad-hoc tasks.</div>}
+      {actAdhoc.map((t,i)=>{
+        const isEditing=adhocEditId===t.id;
+        const dl=t.DueDate?daysLeft(t.DueDate):null;
+        return<div key={t.id||i} style={{borderBottom:`1px solid ${C.b1}`}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0"}}>
+            <span style={{fontSize:14,marginTop:1,flexShrink:0}}>{catIcon[t.Category]||"📌"}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:500,color:C.t7}}>{t.Title||t.Description}</div>
+              <div style={{fontSize:11,color:C.b4,marginTop:2}}>{t.PMName} · {t.Category} · {t.PropertyName||"General"} · Due: {fD(t.DueDate)}{dl!==null?<span style={{fontWeight:600,color:dl<=0?C.er:dl<=3?C.wn:C.t4}}> · {dl<=0?"Overdue":`${dl}d left`}</span>:null}</div>
+              {t.ContextNotes&&!isEditing&&<div style={{fontSize:10,color:C.b3,marginTop:2,fontStyle:"italic"}}>"{t.ContextNotes.slice(0,70)}…"</div>}
+            </div>
+            <div style={{display:"flex",gap:4,flexShrink:0}}>
+              <Badge type="warning">{t.Status}</Badge>
+              <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>isEditing?setAdhocEditId(null):startAdhocEdit(t)}>{isEditing?"✕ Cancel":"✎ Edit"}</button>
+              <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Mark this task as Missed?"))onMissAdhoc&&onMissAdhoc(t);}}>✗ Miss</button>
+            </div>
+          </div>
+          {isEditing&&<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:14,marginBottom:8}}>
+            <RField label="Task Description"><input style={inputS} value={adhocEditFields.desc} onChange={e=>setAdhocEditFields(p=>({...p,desc:e.target.value}))}/></RField>
+            <div style={{...S.row,marginBottom:8}}>
+              <div style={{flex:2}}><label style={S.label}>Assigned To</label><select style={selS} value={adhocEditFields.assignedTo} onChange={e=>setAdhocEditFields(p=>({...p,assignedTo:e.target.value}))}><option value="">Select...</option><option value="all">All PMs</option>{pms.map(pm=><option key={pm.Email} value={pm.Email}>{pm.Name}</option>)}<option value="leslie">Leslie</option></select></div>
+              <div style={{flex:2}}><label style={S.label}>Category</label><select style={selS} value={adhocEditFields.category} onChange={e=>setAdhocEditFields(p=>({...p,category:e.target.value}))}>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
+              <div style={{flex:1}}><label style={S.label}>Priority</label><select style={selS} value={adhocEditFields.priority} onChange={e=>setAdhocEditFields(p=>({...p,priority:e.target.value}))}>{["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}</select></div>
+            </div>
+            <div style={{...S.row,marginBottom:8}}>
+              <div style={{flex:2}}><label style={S.label}>Property</label><select style={selS} value={adhocEditFields.propertyId} onChange={e=>setAdhocEditFields(p=>({...p,propertyId:e.target.value}))}><option value="">General</option>{allProps.map(p=><option key={p.id} value={p.Title||p.id}>{p.PropertyName||p.Title}</option>)}</select></div>
+              <div style={{flex:1}}><label style={S.label}>Due Date</label><input type="date" style={inputS} value={adhocEditFields.dueDate} onChange={e=>setAdhocEditFields(p=>({...p,dueDate:e.target.value}))}/></div>
+            </div>
+            <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}>— visible to recipient</span></>}>
+              <textarea style={{...inputS,minHeight:60,resize:"vertical"}} value={adhocEditFields.contextNotes} onChange={e=>setAdhocEditFields(p=>({...p,contextNotes:e.target.value}))}/>
+            </RField>
+            <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
+              <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAdhocEditId(null)}>Cancel</button>
+              <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveAdhocEdit(t)}>✓ Save Changes</button>
+            </div>
+          </div>}
+        </div>;
+      })}
+
+      {doneAdhoc.length>0&&<div style={{marginTop:10,opacity:.6}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.b4,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Completed / Missed</div>
+        {doneAdhoc.slice(0,5).map((t,i)=><div key={t.id||i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.b1}`}}>
+          <span style={{fontSize:12,flex:1,color:C.b6}}>{t.Title||t.Description}</span>
+          <span style={{fontSize:11,color:C.b4}}>{fD(t.DueDate)}</span>
+          <Badge type={t.Status==="Completed"?"success":"error"}>{t.Status}</Badge>
+        </div>)}
+      </div>}
+    </div>
+
+    {/* Close Day */}
+    <div style={{...S.card,borderLeft:`3px solid ${C.wn}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:600,color:C.t7}}>🔄 Close Day</div>
+          <div style={{fontSize:12,color:C.b4,marginTop:3}}>Marks all remaining Queued and In Progress daily tasks as Missed. Resolves open Help Queue items.</div>
+        </div>
+        <button style={{...S.btn(C.g5,C.dk)}} onClick={()=>{if(window.confirm("Close the day? All remaining daily tasks will be marked Missed."))fl("Close Day executed — pending daily tasks marked Missed");}}>Close Day</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ============================================================
+// TASK GENERATION ENGINE (client-side safety net)
+// Primary engine is Power Automate at 6AM daily.
+// This runs on page load and only generates if tasks are missing
+// for the current period — never auto-misses.
+// ============================================================
+async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail,myEmp){
+  const toCreate=[];
+  const now=new Date();
+  const todayStr=today();
+  const dayOfWeek=(now.getDay()+6)%7; // 0=Mon ... 4=Fri
+  const dayOfMonth=now.getDate();
+
+  for(const def of recurringDefs){
+    if(def.IsActive===false)continue;
+    // Determine if this def applies to this user
+    const appliesToEmail=def.AppliesToEmail?.toLowerCase();
+    const appliesToRole=def.AppliesToRole?.toLowerCase();
+    const isForMe=!appliesToEmail||appliesToEmail===myEmail?.toLowerCase()||appliesToRole==="pm";
+
+    if(!isForMe)continue;
+
+    const pk=periodKey(def.Cadence,def.DayOfWeek,def.DayOfMonth);
+    // Check if this period's task already exists
+    const exists=existingActivity.some(a=>a.RecurringTaskId===String(def.id||def.Id)&&a.PeriodKey===pk&&a.PMEmail?.toLowerCase()===myEmail?.toLowerCase());
+    if(exists)continue;
+
+    // For weekly: only generate on the specified day
+    if(def.Cadence==="Weekly"&&(def.DayOfWeek??0)!==dayOfWeek)continue;
+    // For monthly: only generate on the specified day
+    if(def.Cadence==="Monthly"&&(def.DayOfMonth??1)!==dayOfMonth)continue;
+
+    const dueDate=computeDueDate(def);
+    toCreate.push({
+      Title:`Task-${def.Description?.slice(0,30)||"Checklist"}`,
+      ActivityType:"Checklist",
+      RecurringTaskId:String(def.id||def.Id||""),
+      PMEmail:myEmail,
+      PMName:myEmp?.Name||myEmail,
+      Category:def.Category||"Admin/Other",
+      Cadence:def.Cadence,
+      Status:"Queued",
+      Priority:def.Priority||"Normal",
+      Description:def.Description||"",
+      ContextNotes:def.ContextNotes||"",
+      OnTimeCutoff:def.OnTimeCutoff||"17:00",
+      DueDayOfWeek:def.DueDayOfWeek??null,
+      DueDayOfMonth:def.DueDayOfMonth??null,
+      DueDate:dueDate,
+      PeriodKey:pk,
+      ActivityDate:new Date().toISOString(),
+      AssignedByEmail:"system@newshirepm.com",
+      AssignedByName:"Recurring Schedule",
+      Source:"Recurring",
+      IsActive:true,
+    });
+  }
+
+  const created=[];
+  for(const fields of toCreate){
+    try{
+      const r=await gPost(token,lUrl(CONFIG.listPMActivity),fields);
+      created.push(r);
+    }catch(e){console.warn("[PMH] generate failed:",e.message);}
+  }
+  return created;
+}
+
+function computeDueDate(def){
+  const now=new Date();
+  if(def.Cadence==="Daily"){
+    const[hh,mm]=(def.OnTimeCutoff||"17:00").split(":").map(Number);
+    const d=new Date(now);d.setHours(hh,mm,0,0);
+    return d.toISOString();
+  }
+  if(def.Cadence==="Weekly"){
+    const dueDay=def.DueDayOfWeek??2;
+    const curDay=(now.getDay()+6)%7;
+    const diff=(dueDay-curDay+7)%7;
+    const d=new Date(now);d.setDate(d.getDate()+diff);d.setHours(17,0,0,0);
+    return d.toISOString();
+  }
+  if(def.Cadence==="Monthly"){
+    const dueDay=def.DueDayOfMonth??5;
+    const d=new Date(now.getFullYear(),now.getMonth(),dueDay,17,0,0,0);
+    return d.toISOString();
+  }
+  return now.toISOString();
+}
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function App(){
+  const msalRef=useRef(null);
+  const[acct,setAcct]=useState(null);
+  const[role,setRole]=useState(null);
+  const[myEmp,setMyEmp]=useState(null);
+  const[loading,setLoading]=useState(true);
+  const[tab,setTab]=useState(null);
+  const[flash,setFlash]=useState("");
+  const[data,setData]=useState(null);
+  const[dfFrom,setDfFrom]=useState(()=>{const d=new Date();d.setDate(d.getDate()-7);return d.toISOString().slice(0,10);});
+  const[dfTo,setDfTo]=useState(today);
+  const flashTimer=useRef(null);
+
+  function fl(msg){
+    setFlash(msg);
+    clearTimeout(flashTimer.current);
+    flashTimer.current=setTimeout(()=>setFlash(""),4000);
+  }
+
+  // MSAL init
+  useEffect(()=>{
+    const msalApp=new msal.PublicClientApplication({
+      auth:{clientId:CONFIG.clientId,authority:`https://login.microsoftonline.com/${CONFIG.tenantId}`,redirectUri:window.location.origin},
+      cache:{cacheLocation:"sessionStorage"},
+    });
+    msalRef.current=msalApp;
+    msalApp.initialize().then(()=>{
+      const accounts=msalApp.getAllAccounts();
+      if(accounts.length>0)setAcct(accounts[0]);
+      else msalApp.loginPopup({scopes:SCOPES}).then(r=>setAcct(r.account)).catch(console.error);
+    });
+  },[]);
+
+  async function getToken(){
+    const msal=msalRef.current;
+    if(!msal||!acct)throw new Error("Not authenticated");
+    try{const r=await msal.acquireTokenSilent({scopes:SCOPES,account:acct});return r.accessToken;}
+    catch{const r=await msal.acquireTokenPopup({scopes:SCOPES,account:acct});return r.accessToken;}
+  }
+
+  // Load data when account is ready
+  useEffect(()=>{if(acct)loadAll();},[acct]);
+
+  async function loadAll(){
+    setLoading(true);
+    try{
+      const tk=await getToken();
+      const myEmail=acct.username.toLowerCase();
+
+      // Load employees first to determine role
+      const empRaw=await safeGet(tk,"Employees",`${lUrl(CONFIG.listEmployees)}?expand=fields&$top=200`);
+      const emps=empRaw.map(e=>({...e.fields,id:e.id}));
+      const me=emps.find(e=>e.Email?.toLowerCase()===myEmail)||{Email:myEmail};
+      const userRole=detectRole(me,CONFIG.adminEmails);
+
+      if(!userRole||userRole==="denied"){
+        setRole("denied");setLoading(false);return;
+      }
+
+      setMyEmp(me);setRole(userRole);
+
+      // Load all lists in parallel
+      const sevenDaysAgo=new Date();sevenDaysAgo.setDate(sevenDaysAgo.getDate()-7);
+      const sevenFilter=`fields/ActivityDate ge '${sevenDaysAgo.toISOString()}'`;
+
+      const[recurringRaw,activityRaw,helpRaw,tagsRaw,propsRaw,portfoliosRaw,vaActivityRaw]=await Promise.all([
+        safeGet(tk,"PM_RecurringTasks",`${lUrl(CONFIG.listRecurring)}?expand=fields&$top=500`),
+        safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500&$filter=${sevenFilter}`),
+        safeGet(tk,"PM_HelpQueue",`${lUrl(CONFIG.listHelpQueue)}?expand=fields&$top=200`),
+        safeGet(tk,"PM_Tags",`${lUrl(CONFIG.listTags)}?expand=fields&$top=200`),
+        safeGet(tk,"VA_Properties",`${lUrl(CONFIG.listVAProperties)}?expand=fields&$top=200`),
+        safeGet(tk,"VA_Portfolios",`${lUrl(CONFIG.listVAPortfolios)}?expand=fields&$top=200`),
+        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=200&$filter=${sevenFilter}`),
+      ]);
+
+      const recurringDefs=recurringRaw.map(r=>({...r.fields,id:r.id}));
+      const activity=activityRaw.map(r=>({...r.fields,id:r.id}));
+      const helpQueue=helpRaw.map(r=>({...r.fields,id:r.id}));
+      const tags=tagsRaw.map(r=>({...r.fields,id:r.id}));
+      const properties=propsRaw.map(r=>({...r.fields,id:r.id}));
+      const portfolios=portfoliosRaw.map(r=>({...r.fields,id:r.id}));
+      const vaActivities=vaActivityRaw.map(r=>({...r.fields,id:r.id}));
+      const pms=emps.filter(e=>detectRole(e,CONFIG.adminEmails)==="pm"||detectRole(e,CONFIG.adminEmails)==="admin");
+      const vas=emps.filter(e=>e.JobTitle==="Virtual Assistant");
+      const reviews=vaActivities.filter(a=>a.ActivityType==="Review"||a.ActivityType==="ReviewResponse");
+      const allResponses=vaActivities.filter(a=>a.ActivityType==="ReviewResponse");
+
+      const newData={emps,me,properties,portfolios,vaActivities,vas,pms,helpQueue,tags,reviews,allResponses,recurringDefs,activity};
+      setData(newData);
+
+      // Generate missing tasks for current user (safety net)
+      if(userRole==="pm"||userRole==="ar"||userRole==="admin"){
+        const myActivity=activity.filter(a=>a.PMEmail?.toLowerCase()===myEmail);
+        await generateMissingTasks(tk,recurringDefs,myActivity,myEmail,me);
+        // Reload activity after generation
+        const freshActivity=await safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500&$filter=${sevenFilter}`);
+        newData.activity=freshActivity.map(r=>({...r.fields,id:r.id}));
+        setData({...newData});
+      }
+
+      // Set default tab based on role
+      const defaultTabs={pm:"checklist",ar:"artasks",regional:"regional",admin:"checklist"};
+      setTab(t=>t||defaultTabs[userRole]||"checklist");
+
+    }catch(e){console.error("[PMH] load error:",e);fl("Error loading data: "+e.message);}
+    setLoading(false);
+  }
+
+  async function startTask(task){
+    try{
+      const tk=await getToken();
+      await gPatch(tk,iUrl(CONFIG.listPMActivity,task.id),{Status:"In Progress"});
+      await loadAll();fl("Task started");
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  async function completeTask(task,notes){
+    try{
+      const tk=await getToken();
+      const now=new Date().toISOString();
+      // Determine on-time status for daily tasks
+      let completionStatus="On Time";
+      if(task.Cadence==="Daily"&&task.OnTimeCutoff){
+        const[hh,mm]=task.OnTimeCutoff.split(":").map(Number);
+        const cutoff=new Date();cutoff.setHours(hh,mm,0,0);
+        if(new Date()>cutoff)completionStatus="Late";
+      }else if(task.DueDate&&new Date()>new Date(task.DueDate)){
+        completionStatus="Late";
+      }
+      await gPatch(tk,iUrl(CONFIG.listPMActivity,task.id),{Status:"Completed",CompletionStatus:completionStatus,CompletedAt:now,Notes:notes||""});
+      await loadAll();fl("✓ Task complete "+(completionStatus==="Late"?"(Late)":""));
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  async function flagHelp(task,type,opts){
+    try{
+      const tk=await getToken();
+      const myEmail=acct.username.toLowerCase();
+      if(type==="peer"){
+        await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Help-${task.Title||task.Description}`,TaskTitle:task.Title||task.Description,RequestingPMEmail:myEmail,RequestingPMName:myEmp?.Name||myEmail,PropertyName:task.PropertyName||"",Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",SourceActivityId:task.id,CreatedAt:new Date().toISOString()});
+      }else if(type==="tag"){
+        await gPost(tk,lUrl(CONFIG.listTags),{Title:`Tag-${task.Title||task.Description}`,TaskTitle:task.Title||task.Description,FromEmail:myEmail,FromName:myEmp?.Name||myEmail,ToEmail:opts.tagTarget,ToName:opts.tagTarget,PropertyName:task.PropertyName||"",Message:opts.tagMsg||"",Status:"Pending",SourceActivityId:task.id,CreatedAt:new Date().toISOString()});
+      }else if(type==="va"&&opts.assignedVA){
+        await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Task-${opts.vaDesc||task.Title}`,ActivityType:"Task",VAEmail:opts.assignedVA.Email,VAName:opts.assignedVA.Name,PropertyName:opts.vaProp,Category:opts.vaCategory||task.Category,Priority:task.Priority||"Normal",Notes:opts.vaNotes||"",Status:"Queued",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,ActivityDate:new Date().toISOString(),Source:"Assigned"});
+      }
+      await gPatch(tk,iUrl(CONFIG.listPMActivity,task.id),{Status:"Help Needed",HelpType:type==="peer"?"Peer":type==="tag"?"Tagged":"VA"});
+      await loadAll();
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  async function submitVATask(opts){
+    try{
+      const tk=await getToken();
+      const myEmail=acct.username.toLowerCase();
+      await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Task-${opts.desc}`,ActivityType:"Task",VAEmail:opts.routedVA.VAEmail||opts.routedVA.Email,VAName:opts.routedVA.Name||opts.routedVA.VAName,PropertyName:opts.prop,Category:opts.cat,Priority:opts.pri||"Normal",Notes:opts.notes||"",Status:"Queued",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,ActivityDate:new Date().toISOString(),Source:"Assigned"});
+      await loadAll();
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  async function saveRecurring(id,fields){
+    try{
+      const tk=await getToken();
+      const patch={};
+      if(fields.desc!==undefined)patch.Description=fields.desc;
+      if(fields.contextNotes!==undefined)patch.ContextNotes=fields.contextNotes;
+      if(fields.adminNotes!==undefined)patch.AdminNotes=fields.adminNotes;
+      if(fields.category!==undefined)patch.Category=fields.category;
+      if(fields.priority!==undefined)patch.Priority=fields.priority;
+      if(fields.onTimeCutoff!==undefined)patch.OnTimeCutoff=fields.onTimeCutoff;
+      if(fields.dayOfWeek!==undefined)patch.DayOfWeek=fields.dayOfWeek;
+      if(fields.dueDayOfWeek!==undefined)patch.DueDayOfWeek=fields.dueDayOfWeek;
+      if(fields.dayOfMonth!==undefined)patch.DayOfMonth=fields.dayOfMonth;
+      if(fields.dueDayOfMonth!==undefined)patch.DueDayOfMonth=fields.dueDayOfMonth;
+      if(fields.appliesTo){
+        const pm=data.pms?.find(p=>p.Name===fields.appliesTo||fields.appliesTo.startsWith(p.Name));
+        if(pm){patch.AppliesToEmail=pm.Email;patch.AppliesToName=pm.Name;}
+        else{patch.AppliesToEmail="";patch.AppliesToName=fields.appliesTo;}
+      }
+      await gPatch(tk,iUrl(CONFIG.listRecurring,id),patch);
+      await loadAll();
+    }catch(e){fl("Error saving: "+e.message);}
+  }
+
+  async function addRecurring(fields){
+    try{
+      const tk=await getToken();
+      const myEmail=acct.username.toLowerCase();
+      const pm=data.pms?.find(p=>p.Name===fields.appliesTo||fields.appliesTo?.startsWith(p.Name));
+      await gPost(tk,lUrl(CONFIG.listRecurring),{Title:`RT-${uid()}`,Description:fields.desc,AppliesToEmail:pm?.Email||"",AppliesToName:fields.appliesTo||"All PMs",AppliesToRole:"pm",Category:fields.category,Cadence:fields.cadence,Priority:fields.priority||"Normal",ContextNotes:fields.contextNotes||"",AdminNotes:fields.adminNotes||"",OnTimeCutoff:fields.onTimeCutoff||"17:00",DayOfWeek:fields.dayOfWeek??0,DueDayOfWeek:fields.dueDayOfWeek??2,DayOfMonth:fields.dayOfMonth??1,DueDayOfMonth:fields.dueDayOfMonth??5,IsActive:true,CreatedByEmail:myEmail});
+      await loadAll();
+    }catch(e){fl("Error adding task: "+e.message);}
+  }
+
+  async function toggleRecurring(rec){
+    try{const tk=await getToken();await gPatch(tk,iUrl(CONFIG.listRecurring,rec.id),{IsActive:!(rec.IsActive!==false)});await loadAll();}
+    catch(e){fl("Error: "+e.message);}
+  }
+
+  async function deleteRecurring(rec){
+    try{const tk=await getToken();await gPatch(tk,iUrl(CONFIG.listRecurring,rec.id),{IsActive:false,Description:`[DELETED] ${rec.Description||""}`});await loadAll();}
+    catch(e){fl("Error: "+e.message);}
+  }
+
+  async function assignAdhoc(fields){
+    try{
+      const tk=await getToken();
+      const myEmail=acct.username.toLowerCase();
+      const pm=data.pms?.find(p=>p.Email===fields.assignedTo);
+      await gPost(tk,lUrl(CONFIG.listPMActivity),{Title:`Adhoc-${fields.desc.slice(0,40)}`,ActivityType:"Ad-Hoc",Source:"Assigned",PMEmail:fields.assignedTo==="all"?"":pm?.Email||fields.assignedTo,PMName:pm?.Name||fields.assignedTo,Category:fields.category,Priority:fields.priority||"Normal",PropertyId:fields.propertyId||"",PropertyName:fields.propertyId||"General",DueDate:fields.dueDate?new Date(fields.dueDate+"T17:00:00").toISOString():null,ContextNotes:fields.contextNotes||"",Description:fields.desc,Status:"Queued",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,ActivityDate:new Date().toISOString(),Cadence:"Ad-Hoc",IsActive:true});
+      await loadAll();
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  async function missAdhoc(task){
+    try{const tk=await getToken();await gPatch(tk,iUrl(CONFIG.listPMActivity,task.id),{Status:"Missed",MissedAt:new Date().toISOString()});await loadAll();fl("Task marked Missed");}
+    catch(e){fl("Error: "+e.message);}
+  }
+
+  async function claimHelp(q){
+    try{const tk=await getToken();const myEmail=acct.username.toLowerCase();await gPatch(tk,iUrl(CONFIG.listHelpQueue,q.id),{Status:"Claimed",ClaimedByEmail:myEmail,ClaimedByName:myEmp?.Name||myEmail,ClaimedAt:new Date().toISOString()});await loadAll();fl("Help request claimed");}
+    catch(e){fl("Error: "+e.message);}
+  }
+
+  async function resolveQueue(type,id){
+    try{const tk=await getToken();
+      if(type==="peer")await gPatch(tk,iUrl(CONFIG.listHelpQueue,id),{Status:"Resolved",ResolvedAt:new Date().toISOString()});
+      if(type==="tag")await gPatch(tk,iUrl(CONFIG.listTags,id),{Status:"Resolved",ResolvedAt:new Date().toISOString()});
+      await loadAll();fl("Resolved");
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  async function replyToReview(reviewId,note){
+    try{
+      const tk=await getToken();const myEmail=acct.username.toLowerCase();
+      const orig=data.reviews?.find(r=>r.id===reviewId);if(!orig)return;
+      await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyName:orig.PropertyName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||orig.id,AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,PMEmail:myEmail,PMName:myEmp?.Name||myEmail});
+      await gPatch(tk,`${SITE}/lists/${CONFIG.listVAActivity}/items/${reviewId}/fields`,{Status:"Responded"});
+      await loadAll();fl("Reply sent");
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  async function resolveReview(reviewId,note){
+    try{
+      const tk=await getToken();const myEmail=acct.username.toLowerCase();
+      if(note){
+        const orig=data.reviews?.find(r=>r.id===reviewId);
+        if(orig)await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyName:orig.PropertyName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||orig.id,AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail});
+      }
+      await gPatch(tk,`${SITE}/lists/${CONFIG.listVAActivity}/items/${reviewId}/fields`,{Status:"Resolved"});
+      await loadAll();fl("Review resolved");
+    }catch(e){fl("Error: "+e.message);}
+  }
+
+  // Build tab list based on role
+  const TABS=useMemo(()=>{
+    if(!role)return[];
+    const t=[];
+    if(role==="pm"||role==="admin"){t.push({k:"checklist",l:"My Checklist"});}
+    if(role==="ar"){t.push({k:"artasks",l:"My Tasks"});}
+    t.push({k:"active",l:"Active"});
+    t.push({k:"helpqueue",l:`Help Queue${(data?.helpQueue?.filter(q=>q.Status==="Open").length||0)>0?" ("+data.helpQueue.filter(q=>q.Status==="Open").length+")":""}`});
+    if(role!=="ar")t.push({k:"vatasks",l:"VA Tasks"});
+    if(role==="ar"||role==="admin")t.push({k:"vatasks",l:"VA Tasks"});
+    if(role==="ar")t.push({k:"vatasks_ar",l:"VA Tasks"});
+    if(role==="regional"||role==="admin"){t.push({k:"regional",l:"Regional Overview"});}
+    if(role==="regional"||role==="admin"){t.push({k:"history",l:"History"});}
+    if(role==="admin"||role==="regional"){t.push({k:"admin",l:"Admin"});}
+    return t;
+  },[role,data?.helpQueue]);
+
+  // Simplify: clean tabs
+  const finalTabs=useMemo(()=>{
+    if(!role)return[];
+    const defs={
+      pm:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"}],
+      ar:[{k:"artasks",l:"My Tasks"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"}],
+      regional:[{k:"regional",l:"Regional Overview"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
+      admin:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"regional",l:"Regional Overview"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
+    };
+    const tabs=defs[role]||[];
+    // Annotate help queue with count
+    return tabs.map(t=>t.k==="helpqueue"?{...t,l:`Help Queue${(data?.helpQueue?.filter(q=>q.Status==="Open").length||0)>0?" ("+data.helpQueue.filter(q=>q.Status==="Open").length+")":""}`}:t);
+  },[role,data?.helpQueue]);
+
+  const myEmail=acct?.username?.toLowerCase()||"";
+  const myTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail&&(a.Cadence==="Daily"||a.Cadence==="Weekly"||a.Cadence==="Monthly"||a.Cadence==="Ad-Hoc"));
+  const adhocTasks=(data?.activity||[]).filter(a=>a.Source==="Assigned"||a.ActivityType==="Ad-Hoc");
+  const arTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail);
+
+  if(!acct)return<div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>🏢</div><div style={{fontSize:15,color:C.t7,marginBottom:8}}>Signing in to PM Hub…</div></div></div>;
+  if(role==="denied")return<div style={S.page}><AccessDenied email={myEmail}/></div>;
+  if(loading)return<div style={S.page}><Spinner/></div>;
+
+  return<div style={S.page}>
+    {/* Header */}
+    <div style={S.hdr}>
+      <div style={{display:"flex",flexDirection:"column"}}>
+        <div style={S.hdrTitle}>NEWSHIRE</div>
+        <div style={S.hdrSub}>{CONFIG.appName}</div>
+      </div>
+      <div style={{textAlign:"right"}}>
+        <div style={S.hdrUser}>{myEmp?.Name||acct.name||myEmail}</div>
+        <div style={S.hdrRole}>{role?.toUpperCase()}</div>
+      </div>
+    </div>
+
+    {/* Flash */}
+    {flash&&<Flash msg={flash}/>}
+
+    {/* Tabs */}
+    <div style={S.tabBar}>
+      {finalTabs.map(t=><button key={t.k} style={S.tab(tab===t.k)} onClick={()=>setTab(t.k)}>{t.l}</button>)}
+    </div>
+
+    {/* Views */}
+    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={role} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} reviews={data?.reviews||[]} fl={fl}/>}
+    {tab==="active"&&<ActiveView tasks={(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} fl={fl}/>}
+    {tab==="helpqueue"&&<HelpQueueView queue={data?.helpQueue||[]} tags={(data?.tags||[]).filter(t=>t.ToEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} myEmp={myEmp} onClaim={claimHelp} onResolveQueue={resolveQueue} fl={fl}/>}
+    {tab==="vatasks"&&<VATasksView data={data} reviews={data?.reviews||[]} allResponses={data?.allResponses||[]} myEmail={myEmail} myEmp={myEmp} role={role} onReplyReview={replyToReview} onResolveReview={resolveReview} onSubmitVATask={submitVATask} fl={fl}/>}
+    {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
+    {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} fl={fl}/>}
+    {tab==="history"&&<HistoryView allTasks={data?.activity||[]} pms={data?.pms||[]} role={role} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo}/>}
+    {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} fl={fl}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
