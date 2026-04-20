@@ -423,7 +423,8 @@ function VAReviewSection({reviews,onReply,onResolve,myEmail}){
   const[replyText,setReplyText]=useState({});
   // Reviews already filtered to this PM's properties in loadAll
   const myProps=reviews.filter(r=>r.ActivityType==="Review");
-  const pending=myProps.filter(r=>r.Status==="Pending"||r.Status==="Responded");
+  // Only show in checklist if VA was last to touch it (PM hasn't responded yet)
+  const pending=myProps.filter(r=>r.Status==="Pending");
   if(!pending.length)return null;
   return<div style={{...S.card,borderLeft:`3px solid ${C.er}`}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -475,7 +476,7 @@ function VAReviewSection({reviews,onReply,onResolve,myEmail}){
 // ============================================================
 // MY CHECKLIST VIEW
 // ============================================================
-function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComplete,onFlagHelp,onCompleteAdhoc,reviews,fl}){
+function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComplete,onFlagHelp,onCompleteAdhoc,onReplyReview,onResolveReview,reviews,fl}){
   const[detailTask,setDetailTask]=useState(null);
   const[helpTask,setHelpTask]=useState(null);
 
@@ -508,7 +509,7 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
     </div>
 
     {/* VA Review Items */}
-    <VAReviewSection reviews={reviews} onReply={(id,note)=>fl("Reply sent")} onResolve={(id,note)=>fl("Resolved")} myEmail={myEmail}/>
+    <VAReviewSection reviews={reviews} onReply={onReplyReview} onResolve={onResolveReview} myEmail={myEmail}/>
 
     {/* Checklist sections */}
     <ChecklistSection label="Daily" icon="📋" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>
@@ -818,9 +819,11 @@ function ARTasksView({tasks,vaActivities,data,myEmail,myEmp,role,onStart,onCompl
 // ============================================================
 // REGIONAL OVERVIEW
 // ============================================================
-function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,fl}){
+function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggleAbsence,fl}){
   const[pmFilter,setPMFilter]=useState("all");
   const pms=data?.pms||[];
+  const outPMs=new Set(pms.filter(p=>p.PMTrackerStatus==="Out").map(p=>p.Email?.toLowerCase()));
+
   const filteredTasks=allTasks.filter(t=>{
     if(!inRange(t.ActivityDate||t.DueDate,dfFrom,dfTo))return false;
     if(pmFilter!=="all"&&t.PMEmail?.toLowerCase()!==pmFilter)return false;
@@ -829,19 +832,34 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,fl}){
   const total=filteredTasks.length;
   const done=filteredTasks.filter(t=>t.Status==="Completed").length;
   const late=filteredTasks.filter(t=>t.CompletionStatus==="Late").length;
-  const missed=filteredTasks.filter(t=>t.Status==="Missed").length;
+  // Exclude Out PMs from missed count
+  const missed=filteredTasks.filter(t=>t.Status==="Missed"&&!outPMs.has(t.PMEmail?.toLowerCase())).length;
   const onTimePct=done?Math.round((done-late)/done*100):null;
   const openHelp=queue.filter(q=>q.Status==="Open").length;
+  const coverage=queue.filter(q=>q.IsCoverage).length;
 
   const pmStats=pms.map(pm=>{
+    const isOut=pm.PMTrackerStatus==="Out";
     const pmTasks=filteredTasks.filter(t=>t.PMEmail?.toLowerCase()===pm.Email?.toLowerCase());
     const pmDone=pmTasks.filter(t=>t.Status==="Completed").length;
     const pmLate=pmTasks.filter(t=>t.CompletionStatus==="Late").length;
-    const pmMissed=pmTasks.filter(t=>t.Status==="Missed").length;
-    return{...pm,total:pmTasks.length,done:pmDone,late:pmLate,missed:pmMissed,onTimePct:pmDone?Math.round((pmDone-pmLate)/pmDone*100):null};
+    // Don't count missed against Out PMs
+    const pmMissed=isOut?0:pmTasks.filter(t=>t.Status==="Missed").length;
+    return{...pm,isOut,total:pmTasks.length,done:pmDone,late:pmLate,missed:pmMissed,onTimePct:pmDone?Math.round((pmDone-pmLate)/pmDone*100):null};
   });
 
   return<div style={S.content}>
+    {/* Out PMs banner */}
+    {outPMs.size>0&&<div style={{...S.card,borderLeft:`3px solid ${C.er}`,background:"rgba(196,75,59,0.04)",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.er,marginBottom:6}}>🚨 PMs Currently Out ({outPMs.size})</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        {pms.filter(p=>p.PMTrackerStatus==="Out").map(p=><div key={p.Email} style={{display:"flex",alignItems:"center",gap:6,background:C.white,border:`1px solid ${C.er}`,borderRadius:4,padding:"4px 10px"}}>
+          <span style={{fontSize:12,fontWeight:600,color:C.er}}>{p.Name}</span>
+          <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onToggleAbsence&&onToggleAbsence(p)}>Mark In</button>
+        </div>)}
+      </div>
+    </div>}
+
     {/* Filters */}
     <div style={{...S.card,padding:"10px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
       <div><label style={S.label}>From</label><input type="date" style={{...S.input,width:140}} value={dfFrom} onChange={e=>setDfFrom(e.target.value)}/></div>
@@ -849,7 +867,7 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,fl}){
       <div style={{flex:1,minWidth:160}}><label style={S.label}>PM</label>
         <select style={S.select} value={pmFilter} onChange={e=>setPMFilter(e.target.value)}>
           <option value="all">All PMs</option>
-          {pms.map(pm=><option key={pm.Email} value={pm.Email?.toLowerCase()}>{pm.Name}</option>)}
+          {pms.map(pm=><option key={pm.Email} value={pm.Email?.toLowerCase()}>{pm.Name}{pm.PMTrackerStatus==="Out"?" 🔴":""}</option>)}
         </select>
       </div>
       <div style={{display:"flex",gap:5}}>
@@ -865,24 +883,30 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,fl}){
       <KPI label="Late" value={late} color={late?C.wn:C.ok}/>
       <KPI label="Missed" value={missed} color={missed?C.er:C.ok}/>
       <KPI label="Help Queue" value={openHelp} color={openHelp?C.wn:C.ok}/>
+      {coverage>0&&<KPI label="Coverage" value={coverage} color={C.wn}/>}
     </div>
 
     {/* PM Compliance Table */}
     <div style={S.card}>
-      <div style={S.cardT}>PM Compliance Breakdown</div>
+      <div style={{...S.cardT,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>PM Compliance Breakdown</span>
+        <span style={{fontSize:11,color:C.b4,fontWeight:400}}>Mark Out suppresses missed counts</span>
+      </div>
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr>{["PM","Generated","Completed","On Time%","Late","Missed"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <thead><tr>{["PM","Status","Generated","Completed","On Time%","Late","Missed",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>
-            {pmStats.map((pm,i)=><tr key={pm.Email||i} style={{background:i%2===0?C.wh:C.pg}}>
-              <td style={{...S.td,fontWeight:600}}>{pm.Name}</td>
+            {pmStats.map((pm,i)=><tr key={pm.Email||i} style={{background:pm.isOut?"rgba(196,75,59,0.04)":i%2===0?C.wh:C.pg,opacity:pm.isOut?0.8:1}}>
+              <td style={{...S.td,fontWeight:600,color:pm.isOut?C.er:C.t7}}>{pm.Name}</td>
+              <td style={S.td}><Badge type={pm.isOut?"error":"success"}>{pm.isOut?"Out":"Active"}</Badge></td>
               <td style={S.td}>{pm.total}</td>
               <td style={S.td}>{pm.done}</td>
               <td style={S.td}><span style={{fontWeight:700,color:pm.onTimePct===null?C.b4:pm.onTimePct>=80?C.ok:pm.onTimePct>=60?C.wn:C.er}}>{pm.onTimePct!==null?`${pm.onTimePct}%`:"—"}</span></td>
               <td style={{...S.td,color:pm.late?C.wn:C.ok}}>{pm.late}</td>
-              <td style={{...S.td,color:pm.missed?C.er:C.ok}}>{pm.missed}</td>
+              <td style={{...S.td,color:pm.missed?C.er:C.ok}}>{pm.isOut?"—":pm.missed}</td>
+              <td style={S.td}><button style={{...(pm.isOut?S.btn(C.ok):S.btnO(C.er,C.er)),...S.xs}} onClick={()=>onToggleAbsence&&onToggleAbsence(pm)}>{pm.isOut?"Mark In":"Mark Out"}</button></td>
             </tr>)}
-            {!pmStats.length&&<tr><td colSpan={6} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No data for this period.</td></tr>}
+            {!pmStats.length&&<tr><td colSpan={8} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No data for this period.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -1499,6 +1523,32 @@ function App(){
     }catch(e){fl("Error: "+e.message);}
   }
 
+  async function toggleAbsence(pm){
+    try{
+      const tk=await getToken();
+      const isOut=pm.PMTrackerStatus==="Out";
+      const newStatus=isOut?"Active":"Out";
+      await gPatch(tk,`${SITE}/lists/${CONFIG.listEmployees}/items/${pm.id}/fields`,{PMTrackerStatus:newStatus});
+      if(!isOut){
+        // Mark Out: flag their Queued tasks as coverage and push to help queue
+        const pmTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===pm.Email?.toLowerCase()&&a.Status==="Queued");
+        for(const task of pmTasks){
+          await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name});
+          await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Coverage: ${task.Description||task.Title}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:pm.Email,RequestingPMName:pm.Name,Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name,Notes:`Auto-generated: ${pm.Name} is marked Out`,CreatedAt:new Date().toISOString()});
+        }
+        fl(`${pm.Name} marked Out — ${pmTasks.length} tasks sent to Help Queue`);
+      } else {
+        // Mark In: remove coverage flag from their unclaimed tasks
+        const coverageTasks=(data?.activity||[]).filter(a=>a.CoverageForEmail?.toLowerCase()===pm.Email?.toLowerCase()&&a.Status==="Queued");
+        for(const task of coverageTasks){
+          await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:false,CoverageForEmail:"",CoverageForName:""});
+        }
+        fl(`${pm.Name} marked In`);
+      }
+      await loadAll();
+    }catch(e){fl("Error: "+e.message);}
+  }
+
   async function saveSession(session,pendingTasks){
     try{
       const tk=await getToken();
@@ -1722,12 +1772,12 @@ function App(){
     </div>
 
     {/* Views */}
-    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={effectiveRole} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} reviews={data?.reviews||[]} fl={fl}/>}
+    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={effectiveRole} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} onReplyReview={replyToReview} onResolveReview={resolveReview} reviews={data?.reviews||[]} fl={fl}/>}
     {tab==="active"&&<ActiveView tasks={(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} fl={fl}/>}
     {tab==="helpqueue"&&<HelpQueueView queue={data?.helpQueue||[]} tags={(data?.tags||[]).filter(t=>t.ToEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} myEmp={myEmp} onClaim={claimHelp} onResolveQueue={resolveQueue} fl={fl}/>}
     {tab==="vatasks"&&<VATasksView data={data} reviews={data?.reviews||[]} allResponses={data?.allResponses||[]} myEmail={myEmail} myEmp={myEmp} role={role} onReplyReview={replyToReview} onResolveReview={resolveReview} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
-    {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} fl={fl}/>}
+    {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} onToggleAbsence={toggleAbsence} fl={fl}/>}
     {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} fl={fl}/>}
     {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} fl={fl}/>}
   </div>;
