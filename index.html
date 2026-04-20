@@ -1396,7 +1396,7 @@ function App(){
         safeGet(tk,"PM_Tags",`${lUrl(CONFIG.listTags)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Properties",`${lUrl(CONFIG.listVAProperties)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Portfolios",`${lUrl(CONFIG.listVAPortfolios)}?expand=fields&$top=200`),
-        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=200&$filter=${actFilter}`),
+        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=500`),
         safeGet(tk,"PM_OneOnOne",`${lUrl(CONFIG.listOneOnOne)}?expand=fields&$top=200`),
       ]);
 
@@ -1407,12 +1407,22 @@ function App(){
       const properties=propsRaw.map(r=>({...r.fields,id:r.id}));
       const portfolios=portfoliosRaw.map(r=>({...r.fields,id:r.id}));
       const vaActivities=vaActivityRaw.map(r=>({...r.fields,id:r.id}));
-      const pms=emps.filter(e=>detectRole(e,CONFIG.adminEmails)==="pm"||detectRole(e,CONFIG.adminEmails)==="admin");
+      const pms=emps.filter(e=>{const r=detectRole(e,CONFIG.adminEmails,msalEmail);return r==="pm"||r==="pm-onsite"||r==="pm-remote"||r==="admin";});
       const vas=emps.filter(e=>e.JobTitle==="Virtual Assistant");
       // VA_Activity has no PMEmail column — match reviews by property ownership
       // Find PropertyIds managed by this PM from VA_Properties
-      const myPropIds=new Set(propsRaw.map(p=>p.fields).filter(p=>p.PMEmail?.toLowerCase()===myEmail).map(p=>p.Title));
-      const reviews=vaActivities.filter(a=>(a.ActivityType==="Review"||a.ActivityType==="ReviewResponse")&&(myPropIds.has(a.PropertyId)||a.PMName===me?.Name));
+      // Match reviews by property ownership - check both PMEmail and PMName since VA_Properties may use either
+      const myPropIds=new Set([
+        ...propsRaw.map(p=>p.fields).filter(p=>p.PMEmail?.toLowerCase()===myEmail).map(p=>p.Title),
+        ...propsRaw.map(p=>p.fields).filter(p=>p.PMName?.toLowerCase()===me?.Name?.toLowerCase()).map(p=>p.Title),
+      ]);
+      // For admin - show all reviews; for PM - show reviews for their properties
+      const isAdminUser=userRole==="admin";
+      const reviews=vaActivities.filter(a=>{
+        if(a.ActivityType!=="Review"&&a.ActivityType!=="ReviewResponse")return false;
+        if(isAdminUser)return true;
+        return myPropIds.has(a.PropertyId)||a.PMName===me?.Name;
+      });
       const allResponses=vaActivities.filter(a=>a.ActivityType==="ReviewResponse");
 
       const oneOnOneSessions=oneOnOneRaw.map(r=>({...r.fields,id:r.id}));
@@ -1422,7 +1432,8 @@ function App(){
       // Generate missing tasks for current user (safety net)
       if(userRole==="pm"||userRole==="ar"||userRole==="admin"){
         const myActivity=activity.filter(a=>a.PMEmail?.toLowerCase()===myEmail);
-        await generateMissingTasks(tk,recurringDefs,myActivity,myEmail,me);
+        // Client-side generation disabled — use Generate-TodaysTasks.ps1 instead
+        // await generateMissingTasks(tk,recurringDefs,myActivity,myEmail,me);
         // Reload activity after generation
         const freshActivity=await safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500`);
         newData.activity=freshActivity.map(r=>({...r.fields,id:r.id}));
