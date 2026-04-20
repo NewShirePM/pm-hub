@@ -1420,7 +1420,7 @@ function App(){
         safeGet(tk,"PM_Tags",`${lUrl(CONFIG.listTags)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Properties",`${lUrl(CONFIG.listVAProperties)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Portfolios",`${lUrl(CONFIG.listVAPortfolios)}?expand=fields&$top=200`),
-        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=500`),
+        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=500&$orderby=Id desc`),
         safeGet(tk,"PM_OneOnOne",`${lUrl(CONFIG.listOneOnOne)}?expand=fields&$top=200`),
       ]);
 
@@ -1678,7 +1678,8 @@ function App(){
         return;
       }
       console.log("[PMH] Replying to review:",orig.Title,"GroupId:",orig.GroupId||orig.id);
-      await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyName:orig.PropertyName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||orig.id,AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,PMEmail:myEmail,PMName:myEmp?.Name||myEmail});
+      // Match VA Tracker v3 field schema exactly - no PMEmail column in VA_Activity
+      await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyId:orig.PropertyId||"",PropertyName:orig.PropertyName||"General",PMName:orig.PMName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||"",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail});
       await gPatch(tk,`${SITE}/lists/${CONFIG.listVAActivity}/items/${reviewId}/fields`,{Status:"Responded"});
       await loadAll();fl("Reply sent");
     }catch(e){console.error("[PMH] replyToReview error:",e);fl("Error: "+e.message);}
@@ -1689,7 +1690,7 @@ function App(){
       const tk=await getToken();const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       if(note){
         const orig=data.reviews?.find(r=>r.id===reviewId);
-        if(orig)await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyName:orig.PropertyName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||orig.id,AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail});
+        if(orig)await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyId:orig.PropertyId||"",PropertyName:orig.PropertyName||"General",PMName:orig.PMName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||"",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail});
       }
       await gPatch(tk,`${SITE}/lists/${CONFIG.listVAActivity}/items/${reviewId}/fields`,{Status:"Resolved"});
       await loadAll();fl("Review resolved");
