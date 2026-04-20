@@ -41,6 +41,7 @@ const CONFIG={
   listHelpQueue:"PM_HelpQueue",
   listTags:"PM_Tags",
   listConfig:"PM_TrackerConfig",
+  listOneOnOne:"PM_OneOnOne",
   // Existing shared lists (read-only)
   listEmployees:"Employees",
   listVAProperties:"VA_Properties",
@@ -408,7 +409,8 @@ function ChecklistSection({label,icon,tasks,onStart,onComplete,onFlagHelp,onOpen
 function VAReviewSection({reviews,onReply,onResolve,myEmail}){
   const[expanded,setExpanded]=useState({});
   const[replyText,setReplyText]=useState({});
-  const myProps=reviews.filter(r=>r.PMEmail?.toLowerCase()===myEmail?.toLowerCase()||r.AssignedToEmail?.toLowerCase()===myEmail?.toLowerCase());
+  // Reviews already filtered to this PM's properties in loadAll
+  const myProps=reviews.filter(r=>r.ActivityType==="Review");
   const pending=myProps.filter(r=>r.Status==="Pending"||r.Status==="Responded");
   if(!pending.length)return null;
   return<div style={{...S.card,borderLeft:`3px solid ${C.er}`}}>
@@ -646,7 +648,8 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
   const allProps=data?.properties||[];
   const myPortfolioProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{const pm=data?.pms?.find(e=>e.Email?.toLowerCase()===myEmail?.toLowerCase());return pm||true;});
 
-  const pendingReviews=(reviews||[]).filter(r=>(r.ActivityType==="Review"||r.ActivityType==="ReviewRequest")&&r.PMEmail?.toLowerCase()===myEmail?.toLowerCase()&&r.Status!=="Resolved");
+  // Reviews pre-filtered to this PM's properties in loadAll — VA_Activity has no PMEmail column
+  const pendingReviews=(reviews||[]).filter(r=>(r.ActivityType==="Review"||r.ActivityType==="ReviewRequest")&&r.Status!=="Resolved");
   const myActivityProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{
     const portfolio=data?.portfolios?.find(pf=>pf.PropertyId===p.Title||pf.PropertyId===p.id);
     return portfolio&&data?.vas?.find(v=>v.Email?.toLowerCase()===portfolio.VAEmail?.toLowerCase());
@@ -1353,17 +1356,18 @@ function App(){
       setMyEmp(me);setRole(userRole);
 
       // Load all lists in parallel
-      const sevenDaysAgo=new Date();sevenDaysAgo.setDate(sevenDaysAgo.getDate()-7);
-      const sevenFilter=`fields/ActivityDate ge '${sevenDaysAgo.toISOString()}'`;
+      const thirtyDaysAgo=new Date();thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+      const actFilter=`fields/ActivityDate ge '${thirtyDaysAgo.toISOString()}'`;
 
-      const[recurringRaw,activityRaw,helpRaw,tagsRaw,propsRaw,portfoliosRaw,vaActivityRaw]=await Promise.all([
+      const[recurringRaw,activityRaw,helpRaw,tagsRaw,propsRaw,portfoliosRaw,vaActivityRaw,oneOnOneRaw]=await Promise.all([
         safeGet(tk,"PM_RecurringTasks",`${lUrl(CONFIG.listRecurring)}?expand=fields&$top=500`),
-        safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500&$filter=${sevenFilter}`),
+        safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500`),
         safeGet(tk,"PM_HelpQueue",`${lUrl(CONFIG.listHelpQueue)}?expand=fields&$top=200`),
         safeGet(tk,"PM_Tags",`${lUrl(CONFIG.listTags)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Properties",`${lUrl(CONFIG.listVAProperties)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Portfolios",`${lUrl(CONFIG.listVAPortfolios)}?expand=fields&$top=200`),
-        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=200&$filter=${sevenFilter}`),
+        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=200&$filter=${actFilter}`),
+        safeGet(tk,"PM_OneOnOne",`${lUrl(CONFIG.listOneOnOne)}?expand=fields&$top=200`),
       ]);
 
       const recurringDefs=recurringRaw.map(r=>({...r.fields,id:r.id}));
@@ -1375,10 +1379,14 @@ function App(){
       const vaActivities=vaActivityRaw.map(r=>({...r.fields,id:r.id}));
       const pms=emps.filter(e=>detectRole(e,CONFIG.adminEmails)==="pm"||detectRole(e,CONFIG.adminEmails)==="admin");
       const vas=emps.filter(e=>e.JobTitle==="Virtual Assistant");
-      const reviews=vaActivities.filter(a=>a.ActivityType==="Review"||a.ActivityType==="ReviewResponse");
+      // VA_Activity has no PMEmail column — match reviews by property ownership
+      // Find PropertyIds managed by this PM from VA_Properties
+      const myPropIds=new Set(propsRaw.map(p=>p.fields).filter(p=>p.PMEmail?.toLowerCase()===myEmail).map(p=>p.Title));
+      const reviews=vaActivities.filter(a=>(a.ActivityType==="Review"||a.ActivityType==="ReviewResponse")&&(myPropIds.has(a.PropertyId)||a.PMName===me?.Name));
       const allResponses=vaActivities.filter(a=>a.ActivityType==="ReviewResponse");
 
-      const newData={emps,me,properties,portfolios,vaActivities,vas,pms,helpQueue,tags,reviews,allResponses,recurringDefs,activity};
+      const oneOnOneSessions=oneOnOneRaw.map(r=>({...r.fields,id:r.id}));
+      const newData={emps,me,properties,portfolios,vaActivities,vas,pms,helpQueue,tags,reviews,allResponses,recurringDefs,activity,oneOnOneSessions};
       setData(newData);
 
       // Generate missing tasks for current user (safety net)
@@ -1386,7 +1394,7 @@ function App(){
         const myActivity=activity.filter(a=>a.PMEmail?.toLowerCase()===myEmail);
         await generateMissingTasks(tk,recurringDefs,myActivity,myEmail,me);
         // Reload activity after generation
-        const freshActivity=await safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500&$filter=${sevenFilter}`);
+        const freshActivity=await safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500`);
         newData.activity=freshActivity.map(r=>({...r.fields,id:r.id}));
         setData({...newData});
       }
@@ -1450,7 +1458,35 @@ function App(){
     }catch(e){fl("Error: "+e.message);}
   }
 
-  async function saveRecurring(id,fields){
+  async function saveSession(session,pendingTasks){
+    try{
+      const tk=await getToken();
+      const item=await gPost(tk,lUrl(CONFIG.listOneOnOne),{
+        Title:`1:1-${session.PMName}-${session.SessionDate.slice(0,10)}`,
+        PMEmail:session.PMEmail,PMName:session.PMName,
+        RegionalEmail:session.RegionalEmail,RegionalName:session.RegionalName,
+        SessionDate:session.SessionDate,
+        SnapTasksTotal:session.SnapTasksTotal,SnapCompleted:session.SnapCompleted,
+        SnapOnTime:session.SnapOnTime,SnapLate:session.SnapLate,SnapMissed:session.SnapMissed,
+        SnapOnTimePct:session.SnapOnTimePct,SnapHelpQueue:session.SnapHelpQueue,
+        SnapPeriodFrom:session.SnapPeriodFrom,SnapPeriodTo:session.SnapPeriodTo,
+        Wins:session.Wins||"",AreasToImprove:session.AreasToImprove||"",
+        ActionItems:session.ActionItems||"",RegionalNotes:session.RegionalNotes||"",
+        TasksAddedJSON:session.TasksAddedJSON||"[]",TasksAddedCount:session.TasksAddedCount||0,
+      });
+      await gPatch(tk,iUrl(CONFIG.listOneOnOne,item.id),{Status:session.Status});
+      // Add any recurring tasks from the session
+      for(const t of pendingTasks){
+        const newRec=await gPost(tk,lUrl(CONFIG.listRecurring),{
+          Title:`RT-${uid()}`,Description:t.desc,AppliesToEmail:session.PMEmail,
+          AppliesToName:session.PMName,AppliesToRole:"pm",Category:t.category,
+          OnTimeCutoff:"17:00",IsActive:true,SortOrder:99,CreatedByEmail:myEmail,
+        });
+        await gPatch(tk,iUrl(CONFIG.listRecurring,newRec.id),{Cadence:t.cadence,Priority:t.priority}).catch(()=>{});
+      }
+      await loadAll();
+    }catch(e){fl("Error saving session: "+e.message);}
+  }
     try{
       const tk=await getToken();
       const patch={};
@@ -1565,10 +1601,10 @@ function App(){
   const finalTabs=useMemo(()=>{
     if(!role)return[];
     const defs={
-      pm:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"}],
+      pm:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"oneonone",l:"My 1:1 History"}],
       ar:[{k:"artasks",l:"My Tasks"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"}],
-      regional:[{k:"regional",l:"Regional Overview"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
-      admin:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"regional",l:"Regional Overview"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
+      regional:[{k:"regional",l:"Regional Overview"},{k:"oneonone",l:"1:1 Sessions"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
+      admin:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"regional",l:"Regional Overview"},{k:"oneonone",l:"1:1 Sessions"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
     };
     const tabs=defs[role]||[];
     // Annotate help queue with count
@@ -1576,7 +1612,14 @@ function App(){
   },[role,data?.helpQueue]);
 
   const myEmail=acct?.username?.toLowerCase()||"";
-  const myTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail&&(a.Cadence==="Daily"||a.Cadence==="Weekly"||a.Cadence==="Monthly"||a.Cadence==="Ad-Hoc"));
+  const myTasks=(data?.activity||[]).filter(a=>{
+    if(a.PMEmail?.toLowerCase()!==myEmail)return false;
+    // Include if cadence is set, OR if it has a RecurringTaskId (catch items where cadence patch is pending)
+    const hasCadence=a.Cadence==="Daily"||a.Cadence==="Weekly"||a.Cadence==="Monthly"||a.Cadence==="Ad-Hoc";
+    const isRecurring=!!a.RecurringTaskId;
+    const isAdhoc=a.ActivityType==="Ad-Hoc"||a.Source==="Assigned";
+    return hasCadence||isRecurring||isAdhoc;
+  });
   const adhocTasks=(data?.activity||[]).filter(a=>a.Source==="Assigned"||a.ActivityType==="Ad-Hoc");
   const arTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail);
 
@@ -1612,8 +1655,236 @@ function App(){
     {tab==="vatasks"&&<VATasksView data={data} reviews={data?.reviews||[]} allResponses={data?.allResponses||[]} myEmail={myEmail} myEmp={myEmp} role={role} onReplyReview={replyToReview} onResolveReview={resolveReview} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} fl={fl}/>}
-    {tab==="history"&&<HistoryView allTasks={data?.activity||[]} pms={data?.pms||[]} role={role} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo}/>}
+    {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} fl={fl}/>} allTasks={data?.activity||[]} pms={data?.pms||[]} role={role} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo}/>}
     {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} fl={fl}/>}
+  </div>;
+}
+
+// ============================================================
+// ONE-ON-ONE VIEW
+// ============================================================
+function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,fl}){
+  const[selPM,setSelPM]=useState("");
+  const[showNew,setShowNew]=useState(false);
+  const[wins,setWins]=useState("");
+  const[improve,setImprove]=useState("");
+  const[actions,setActions]=useState("");
+  const[notes,setNotes]=useState("");
+  const[addTaskOpen,setAddTaskOpen]=useState(false);
+  const[newTaskDesc,setNewTaskDesc]=useState("");
+  const[newTaskCat,setNewTaskCat]=useState("Admin/Other");
+  const[newTaskCadence,setNewTaskCadence]=useState("Daily");
+  const[newTaskPri,setNewTaskPri]=useState("Normal");
+  const[pendingTasks,setPendingTasks]=useState([]);
+  const[pmResponse,setPmResponse]=useState("");
+  const[viewSession,setViewSession]=useState(null);
+
+  const isRegional=role==="regional"||role==="admin";
+  const isPM=role==="pm"||role==="admin";
+  const pms=data?.pms||[];
+  const sessions=(data?.oneOnOneSessions||[]).sort((a,b)=>(b.SessionDate||"").localeCompare(a.SessionDate||""));
+
+  // For PM view — only their sessions
+  const mySessions=isPM&&!isRegional?sessions.filter(s=>s.PMEmail?.toLowerCase()===myEmail):sessions;
+  const filteredSessions=selPM?mySessions.filter(s=>s.PMEmail?.toLowerCase()===selPM):mySessions;
+
+  // Compute KPI snapshot for selected PM
+  function computeSnap(pmEmail){
+    const sevenAgo=new Date();sevenAgo.setDate(sevenAgo.getDate()-7);
+    const pmTasks=allTasks.filter(t=>t.PMEmail?.toLowerCase()===pmEmail?.toLowerCase()&&new Date(t.ActivityDate||t.DueDate)>=sevenAgo);
+    const done=pmTasks.filter(t=>t.Status==="Completed");
+    const onTime=done.filter(t=>t.CompletionStatus==="On Time"||!t.CompletionStatus);
+    const late=done.filter(t=>t.CompletionStatus==="Late");
+    const missed=pmTasks.filter(t=>t.Status==="Missed");
+    const helpQ=(data?.helpQueue||[]).filter(q=>q.RequestingPMEmail?.toLowerCase()===pmEmail?.toLowerCase()&&q.Status==="Open");
+    const onTimePct=done.length?Math.round(onTime.length/done.length*100):null;
+    const from=new Date(sevenAgo).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    const to=new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    return{total:pmTasks.length,completed:done.length,onTime:onTime.length,late:late.length,missed:missed.length,onTimePct,helpQueue:helpQ.length,from,to};
+  }
+
+  const snap=selPM?computeSnap(selPM):null;
+  const selectedPM=pms.find(p=>p.Email?.toLowerCase()===selPM);
+
+  function handleSave(status){
+    if(!selPM||!snap){fl("Select a PM first");return;}
+    const session={
+      PMEmail:selPM,PMName:selectedPM?.Name||selPM,
+      RegionalEmail:myEmail,RegionalName:myEmp?.Name||myEmail,
+      SessionDate:new Date().toISOString(),
+      SnapTasksTotal:snap.total,SnapCompleted:snap.completed,SnapOnTime:snap.onTime,
+      SnapLate:snap.late,SnapMissed:snap.missed,SnapOnTimePct:snap.onTimePct||0,
+      SnapHelpQueue:snap.helpQueue,SnapPeriodFrom:snap.from,SnapPeriodTo:snap.to,
+      Wins:wins,AreasToImprove:improve,ActionItems:actions,RegionalNotes:notes,
+      TasksAddedJSON:JSON.stringify(pendingTasks),TasksAddedCount:pendingTasks.length,
+      Status:status,
+    };
+    onSaveSession&&onSaveSession(session,pendingTasks);
+    setShowNew(false);setWins("");setImprove("");setActions("");setNotes("");setPendingTasks([]);setAddTaskOpen(false);setNewTaskDesc("");
+    fl(status==="Shared with PM"?`1:1 saved and shared with ${selectedPM?.Name}`:"1:1 saved as draft");
+  }
+
+  function addPendingTask(){
+    if(!newTaskDesc.trim())return;
+    setPendingTasks(p=>[...p,{desc:newTaskDesc,category:newTaskCat,cadence:newTaskCadence,priority:newTaskPri}]);
+    setNewTaskDesc("");setAddTaskOpen(false);
+  }
+
+  const sessionStatusColor={Draft:C.b4,"Shared with PM":C.inf,Acknowledged:C.ok};
+
+  return<div style={S.content}>
+    {/* Header row */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+      <div>
+        <div style={{fontSize:17,fontWeight:700,color:C.t7}}>1:1 Sessions</div>
+        <div style={{fontSize:12,color:C.b4}}>{isRegional?"Log coaching sessions with your PMs — captures a KPI snapshot at the time of the 1:1":"Your coaching session history with your Regional Manager"}</div>
+      </div>
+      {isRegional&&<button style={{...S.btn(C.g5,C.dk)}} onClick={()=>setShowNew(o=>!o)}>{showNew?"✕ Cancel":"+ New 1:1"}</button>}
+    </div>
+
+    {/* NEW SESSION FORM */}
+    {showNew&&isRegional&&<div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
+      <div style={S.cardT}>New 1:1 Session</div>
+
+      {/* PM Selector + live KPI snapshot */}
+      <div style={{...S.row,marginBottom:12}}>
+        <div style={{flex:1,minWidth:200}}>
+          <label style={S.label}>PM *</label>
+          <select style={S.select} value={selPM} onChange={e=>setSelPM(e.target.value)}>
+            <option value="">Select PM...</option>
+            {pms.map(p=><option key={p.Email} value={p.Email?.toLowerCase()}>{p.Name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {snap&&<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:12,marginBottom:14}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>📊 KPI Snapshot — Last 7 Days ({snap.from} – {snap.to})</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {[{l:"Tasks",v:snap.total},{l:"Completed",v:snap.completed,c:C.ok},{l:"On Time %",v:snap.onTimePct!==null?`${snap.onTimePct}%`:"—",c:snap.onTimePct===null?C.b4:snap.onTimePct>=80?C.ok:snap.onTimePct>=60?C.wn:C.er},{l:"Late",v:snap.late,c:snap.late?C.wn:C.ok},{l:"Missed",v:snap.missed,c:snap.missed?C.er:C.ok},{l:"Help Queue",v:snap.helpQueue,c:snap.helpQueue?C.wn:C.ok}].map((k,i)=><KPI key={i} label={k.l} value={k.v} color={k.c}/>)}
+        </div>
+        <div style={{fontSize:10,color:C.b4,marginTop:8}}>This snapshot will be saved with the session log for both parties to reference.</div>
+      </div>}
+
+      {/* Coaching fields */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        <div>
+          <label style={S.label}>✅ Wins & Strengths</label>
+          <textarea style={{...S.input,minHeight:80,resize:"vertical"}} value={wins} onChange={e=>setWins(e.target.value)} placeholder="What is this PM doing well? Specific examples..."/>
+        </div>
+        <div>
+          <label style={S.label}>📈 Areas to Improve</label>
+          <textarea style={{...S.input,minHeight:80,resize:"vertical"}} value={improve} onChange={e=>setImprove(e.target.value)} placeholder="What needs attention? Be specific and actionable..."/>
+        </div>
+      </div>
+      <div style={{marginBottom:12}}>
+        <label style={S.label}>📋 Action Items</label>
+        <textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={actions} onChange={e=>setActions(e.target.value)} placeholder="Concrete next steps with owner and timeline..."/>
+      </div>
+      <div style={{marginBottom:14}}>
+        <label style={S.label}>🔒 Regional Notes (not shared with PM)</label>
+        <textarea style={{...S.input,minHeight:50,resize:"vertical"}} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Internal observations, context, escalation notes..."/>
+      </div>
+
+      {/* Tasks to add from this session */}
+      <div style={{background:C.g0,border:`1px solid ${C.g1}`,borderRadius:6,padding:12,marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:pendingTasks.length?8:0}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:C.t7}}>📌 Add Recurring Tasks from This Session</div>
+            <div style={{fontSize:11,color:C.b4,marginTop:2}}>If you identify a gap during the 1:1, add a recurring reminder for this PM right now</div>
+          </div>
+          <button style={{...S.btnO(C.g6,C.g5),...S.sm}} onClick={()=>setAddTaskOpen(o=>!o)}>{addTaskOpen?"Cancel":"+ Add Task"}</button>
+        </div>
+        {pendingTasks.length>0&&<div style={{marginBottom:8}}>
+          {pendingTasks.map((t,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${C.g1}`}}>
+            <span style={{fontSize:12}}>{catIcon[t.category]||"📋"}</span>
+            <div style={{flex:1,fontSize:12,color:C.t7}}>{t.desc}</div>
+            <span style={{fontSize:10,color:C.b4}}>{t.cadence} · {t.category}</span>
+            <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>setPendingTasks(p=>p.filter((_,j)=>j!==i))}>✕</button>
+          </div>)}
+        </div>}
+        {addTaskOpen&&<div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.g1}`}}>
+          <div style={{...S.row,marginBottom:8}}>
+            <div style={{flex:2}}><label style={S.label}>Description *</label><input style={S.input} value={newTaskDesc} onChange={e=>setNewTaskDesc(e.target.value)} placeholder="What should they do daily/weekly/monthly?"/></div>
+            <div style={{flex:1}}><label style={S.label}>Category</label><select style={S.select} value={newTaskCat} onChange={e=>setNewTaskCat(e.target.value)}>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
+          </div>
+          <div style={{...S.row,marginBottom:8}}>
+            <div style={{flex:1}}><label style={S.label}>Cadence</label><select style={S.select} value={newTaskCadence} onChange={e=>setNewTaskCadence(e.target.value)}><option>Daily</option><option>Weekly</option><option>Monthly</option></select></div>
+            <div style={{flex:1}}><label style={S.label}>Priority</label><select style={S.select} value={newTaskPri} onChange={e=>setNewTaskPri(e.target.value)}><option>Normal</option><option>High</option><option>Urgent</option></select></div>
+          </div>
+          <button style={{...S.btn(C.ok),...S.sm,width:"100%"}} onClick={addPendingTask}>+ Add to Session</button>
+        </div>}
+      </div>
+
+      <div style={{display:"flex",gap:8}}>
+        <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>handleSave("Draft")}>Save Draft</button>
+        <button style={{...S.btn(C.t7),...S.sm,flex:1}} onClick={()=>handleSave("Shared with PM")}>✓ Save & Share with {selectedPM?.Name||"PM"}</button>
+      </div>
+    </div>}
+
+    {/* SESSION HISTORY */}
+    {isRegional&&<div style={{...S.card,padding:"10px 14px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",marginTop:showNew?0:0}}>
+      <div style={{flex:1,minWidth:160}}><label style={S.label}>Filter by PM</label>
+        <select style={S.select} value={selPM} onChange={e=>setSelPM(e.target.value)}>
+          <option value="">All PMs</option>
+          {pms.map(p=><option key={p.Email} value={p.Email?.toLowerCase()}>{p.Name}</option>)}
+        </select>
+      </div>
+    </div>}
+
+    <div>
+      {!filteredSessions.length&&<div style={{...S.card,textAlign:"center",padding:40,color:C.b3,fontStyle:"italic"}}>No 1:1 sessions recorded yet.</div>}
+      {filteredSessions.map((s,i)=>{
+        const isExpanded=viewSession===s.id;
+        return<div key={s.id||i} style={{...S.card,borderLeft:`3px solid ${sessionStatusColor[s.Status]||C.b2}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}} onClick={()=>setViewSession(isExpanded?null:s.id)}>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:C.t7}}>{isRegional?s.PMName:"1:1 with Cara Munson"} <span style={{fontSize:11,fontWeight:400,color:C.b4}}>— {fD(s.SessionDate)}</span></div>
+              <div style={{fontSize:11,color:C.b4,marginTop:2,display:"flex",gap:10}}>
+                <span>Tasks: {s.SnapCompleted||0}/{s.SnapTasksTotal||0}</span>
+                {s.SnapOnTimePct!==undefined&&<span>On Time: <strong style={{color:s.SnapOnTimePct>=80?C.ok:s.SnapOnTimePct>=60?C.wn:C.er}}>{s.SnapOnTimePct}%</strong></span>}
+                {s.SnapMissed>0&&<span style={{color:C.er}}>Missed: {s.SnapMissed}</span>}
+                {s.TasksAddedCount>0&&<span style={{color:C.g6}}>+{s.TasksAddedCount} tasks added</span>}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              <Badge type={s.Status==="Acknowledged"?"success":s.Status==="Shared with PM"?"info":"neutral"}>{s.Status||"Draft"}</Badge>
+              <span style={{fontSize:11,color:C.b4}}>{isExpanded?"▲":"▼"}</span>
+            </div>
+          </div>
+
+          {isExpanded&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.b1}`}}>
+            {/* KPI snapshot */}
+            <div style={{background:C.t0,borderRadius:6,padding:10,marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:6}}>KPI Snapshot — {s.SnapPeriodFrom} – {s.SnapPeriodTo}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[{l:"Tasks",v:s.SnapTasksTotal||0},{l:"Done",v:s.SnapCompleted||0,c:C.ok},{l:"On Time%",v:s.SnapOnTimePct!==null?`${s.SnapOnTimePct}%`:"—",c:s.SnapOnTimePct>=80?C.ok:s.SnapOnTimePct>=60?C.wn:C.er},{l:"Late",v:s.SnapLate||0,c:s.SnapLate?C.wn:C.ok},{l:"Missed",v:s.SnapMissed||0,c:s.SnapMissed?C.er:C.ok},{l:"Help Q",v:s.SnapHelpQueue||0}].map((k,ki)=><KPI key={ki} label={k.l} value={k.v} color={k.c}/>)}
+              </div>
+            </div>
+
+            {/* Coaching content */}
+            {s.Wins&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.ok,textTransform:"uppercase",marginBottom:4}}>✅ Wins</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.Wins}</div></div>}
+            {s.AreasToImprove&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.wn,textTransform:"uppercase",marginBottom:4}}>📈 Areas to Improve</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.AreasToImprove}</div></div>}
+            {s.ActionItems&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:4}}>📋 Action Items</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.ActionItems}</div></div>}
+            {isRegional&&s.RegionalNotes&&<div style={{marginBottom:10,background:C.t0,borderRadius:4,padding:"8px 10px"}}><div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:4}}>🔒 Regional Notes</div><div style={{fontSize:12,color:C.b6}}>{s.RegionalNotes}</div></div>}
+
+            {/* Tasks added */}
+            {s.TasksAddedCount>0&&<div style={{marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.g6,textTransform:"uppercase",marginBottom:4}}>📌 Recurring Tasks Added ({s.TasksAddedCount})</div>
+              {(()=>{try{const ts=JSON.parse(s.TasksAddedJSON||"[]");return ts.map((t,ti)=><div key={ti} style={{fontSize:12,color:C.t7,padding:"3px 0",borderBottom:`1px solid ${C.b1}`}}>{catIcon[t.category]||"📋"} {t.desc} <span style={{color:C.b4}}>· {t.cadence} · {t.category}</span></div>);}catch{return null;}})()}
+            </div>}
+
+            {/* PM response */}
+            {s.Status==="Shared with PM"&&!isPM&&<div style={{fontSize:11,color:C.b4,fontStyle:"italic",marginTop:8}}>Waiting for PM to acknowledge this session.</div>}
+            {s.Status==="Shared with PM"&&isPM&&s.PMEmail?.toLowerCase()===myEmail&&<div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.b1}`}}>
+              <label style={S.label}>Your Response (optional)</label>
+              <textarea style={{...S.input,minHeight:60,resize:"vertical",marginBottom:8}} value={pmResponse} onChange={e=>setPmResponse(e.target.value)} placeholder="Add any context or questions for your Regional..."/>
+              <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>{/* acknowledge */fl("Session acknowledged")}}>✓ Acknowledge & Respond</button>
+            </div>}
+            {s.PMResponse&&<div style={{marginTop:10,background:C.okb,borderRadius:4,padding:"8px 10px"}}><div style={{fontSize:11,fontWeight:700,color:C.ok,marginBottom:3}}>PM Response</div><div style={{fontSize:12,color:C.b6}}>{s.PMResponse}</div></div>}
+          </div>}
+        </div>;
+      })}
+    </div>
   </div>;
 }
 
