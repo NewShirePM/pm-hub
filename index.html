@@ -1300,6 +1300,7 @@ function App(){
   const[acct,setAcct]=useState(null);
   const[role,setRole]=useState(null);
   const[myEmp,setMyEmp]=useState(null);
+  const[myEmailState,setMyEmailState]=useState("");
   const[loading,setLoading]=useState(true);
   const[tab,setTab]=useState(null);
   const[flash,setFlash]=useState("");
@@ -1362,7 +1363,7 @@ function App(){
         setRole("denied");setLoading(false);return;
       }
 
-      setMyEmp(me);setRole(userRole);
+      setMyEmp(me);setRole(userRole);setMyEmailState(myEmail);
 
       // Load all lists in parallel
       const thirtyDaysAgo=new Date();thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
@@ -1622,8 +1623,8 @@ function App(){
     return tabs.map(t=>t.k==="helpqueue"?{...t,l:`Help Queue${openHQ>0?" ("+openHQ+")":""}`}:t);
   },[role,data?.helpQueue]);
 
-  // Use resolved email from Employees list (set in loadAll) so it matches PM_Activity records
-  const myEmail=(myEmp?.Email||acct?.username||"").toLowerCase();
+  // Use state-persisted resolved email — avoids null-myEmp race on first render
+  const myEmail=myEmailState||(myEmp?.Email||acct?.username||"").toLowerCase();
   const myTasks=(data?.activity||[]).filter(a=>{
     if(a.PMEmail?.toLowerCase()!==myEmail)return false;
     // Include if cadence is set, OR if it has a RecurringTaskId (catch items where cadence patch is pending)
