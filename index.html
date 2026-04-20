@@ -144,10 +144,15 @@ async function safeGet(token,name,url){try{const r=await gAll(token,url);console
 // ============================================================
 // ROLE DETECTION
 // ============================================================
-function detectRole(emp,adminEmails){
+function detectRole(emp,adminEmails,msalEmail){
+  // Admin check first — by Employees email OR raw MSAL login email (handles domain mismatch)
+  const empEmail=emp?.Email?.toLowerCase()||"";
+  const loginEmail=(msalEmail||"").toLowerCase();
+  const adminList=adminEmails.map(e=>e.toLowerCase());
+  if(adminList.includes(empEmail)||adminList.includes(loginEmail)||
+     adminList.some(a=>a.split("@")[0]===loginEmail.split("@")[0])){return"admin";}
+  // Then check PMHubRole override
   if(emp?.PMHubRole)return emp.PMHubRole.toLowerCase();
-  const email=emp?.Email?.toLowerCase()||"";
-  if(adminEmails.map(e=>e.toLowerCase()).includes(email))return"admin";
   const t=emp?.JobTitle||"";
   if(t==="Virtual Assistant")return"denied";
   if(t==="Property Manager"||t==="Assistant Property Manager")return"pm-onsite";
@@ -1364,7 +1369,7 @@ function App(){
       })||{Email:msalEmail};
       // Use Employees list email so it matches PM_Activity records exactly
       const myEmail=(me?.Email||msalEmail).toLowerCase();
-      const userRole=detectRole(me,CONFIG.adminEmails);
+      const userRole=detectRole(me,CONFIG.adminEmails,msalEmail);
 
       if(!userRole||userRole==="denied"){
         setRole("denied");setLoading(false);return;
