@@ -1669,12 +1669,19 @@ function App(){
 
   async function replyToReview(reviewId,note){
     try{
-      const tk=await getToken();const myEmail=(myEmp?.Email||acct.username).toLowerCase();
-      const orig=data.reviews?.find(r=>r.id===reviewId);if(!orig)return;
+      const tk=await getToken();
+      const myEmail=(myEmp?.Email||acct.username).toLowerCase();
+      const orig=data.reviews?.find(r=>r.id===reviewId||r.id===String(reviewId));
+      if(!orig){
+        console.error("[PMH] replyToReview: review not found. reviewId=",reviewId,"reviews=",data.reviews?.map(r=>r.id));
+        fl("Error: review not found (id: "+reviewId+")");
+        return;
+      }
+      console.log("[PMH] Replying to review:",orig.Title,"GroupId:",orig.GroupId||orig.id);
       await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Response-${orig.Title||"Review"}`,ActivityType:"ReviewResponse",VAEmail:orig.VAEmail,VAName:orig.VAName,ActivityDate:new Date().toISOString(),PropertyName:orig.PropertyName||"",Category:orig.Category||"",Notes:note,Status:"Completed",GroupId:orig.GroupId||orig.id,AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,PMEmail:myEmail,PMName:myEmp?.Name||myEmail});
       await gPatch(tk,`${SITE}/lists/${CONFIG.listVAActivity}/items/${reviewId}/fields`,{Status:"Responded"});
       await loadAll();fl("Reply sent");
-    }catch(e){fl("Error: "+e.message);}
+    }catch(e){console.error("[PMH] replyToReview error:",e);fl("Error: "+e.message);}
   }
 
   async function resolveReview(reviewId,note){
