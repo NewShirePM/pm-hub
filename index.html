@@ -150,12 +150,17 @@ function detectRole(emp,adminEmails){
   if(adminEmails.map(e=>e.toLowerCase()).includes(email))return"admin";
   const t=emp?.JobTitle||"";
   if(t==="Virtual Assistant")return"denied";
-  if(t==="Property Manager")return"pm";
+  if(t==="Property Manager"||t==="Assistant Property Manager")return"pm-onsite";
   if(t==="AR Specialist")return"ar";
   if(t==="Regional/Portfolio Manager")return"regional";
   if(t==="Owner/Operator")return"admin";
   return null;
 }
+
+// Helper — true for any PM variant
+function isAnyPM(role){return role==="pm"||role==="pm-onsite"||role==="pm-remote";}
+function isOnsitePM(role){return role==="pm"||role==="pm-onsite";}
+function isRemotePM(role){return role==="pm-remote";}
 
 // ============================================================
 // COMPONENTS
@@ -207,7 +212,7 @@ function TaskDetailModal({task,onClose,onComplete,onFlagHelp,role}){
   return<div style={{position:"fixed",inset:0,background:"rgba(28,55,64,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div style={{background:C.wh,borderRadius:8,padding:22,width:440,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(15,35,40,.22)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-        <div style={{fontSize:15,fontWeight:700,color:C.t7,lineHeight:1.3,flex:1,marginRight:8}}>{task.Title||task.Description}</div>
+        <div style={{fontSize:15,fontWeight:700,color:C.t7,lineHeight:1.3,flex:1,marginRight:8}}>{taskLabel}</div>
         <button style={{...S.btnO(C.b4,C.b2),...S.xs,flexShrink:0}} onClick={onClose}>✕</button>
       </div>
       <div style={{fontSize:11,color:C.b4,marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${C.b1}`}}>
@@ -279,7 +284,7 @@ function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
   return<div style={{position:"fixed",inset:0,background:"rgba(28,55,64,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div style={{background:C.wh,borderRadius:8,padding:22,width:380,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(15,35,40,.22)"}}>
       <div style={{fontSize:15,fontWeight:700,color:C.t7,marginBottom:3}}>🚩 Flag Help</div>
-      <div style={{fontSize:11,color:C.b4,marginBottom:16,paddingBottom:12,borderBottom:`1px solid ${C.b1}`}}>{task.Title||task.Description}</div>
+      <div style={{fontSize:11,color:C.b4,marginBottom:16,paddingBottom:12,borderBottom:`1px solid ${C.b1}`}}>{taskLabel}</div>
 
       {[{k:"peer",title:"👥 Peer Help",desc:"Post to the shared Help Queue — any available PM can claim it"},
         {k:"tag",title:"🏷️ Tag Team Member",desc:"Send directly to Brandy, Cara, John, or Leslie"},
@@ -337,6 +342,7 @@ function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
 // ============================================================
 function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}){
   const isOwn=!task.PMEmail||task.PMEmail.toLowerCase()===myEmail?.toLowerCase();
+  const taskLabel=task.Description||task.Title||"";
   const canAct=isOwn||(role==="admin"||role==="regional");
   const dl=task.DueDate?daysLeft(task.DueDate):null;
   const overdue=task.Cadence!=="Daily"&&dl!==null&&dl<=0&&task.Status!=="Completed"&&task.Status!=="Missed";
@@ -354,7 +360,7 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}
     <span style={{fontSize:15,flexShrink:0}}>{catIcon[task.Category]||"📋"}</span>
     <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>onOpenDetail&&onOpenDetail(task)}>
       <div style={{fontSize:13,fontWeight:500,color:task.Status==="Missed"?C.er:C.t7,textDecoration:task.Status==="Completed"?"line-through":"none"}}>
-        {task.Title||task.Description}
+        {taskLabel}
         {task.ContextNotes&&<span style={{fontSize:10,color:C.t4,marginLeft:6,fontWeight:400}}>tap for details ›</span>}
       </div>
       <div style={{fontSize:11,color:C.b4,marginTop:2,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
@@ -1448,9 +1454,9 @@ function App(){
       const tk=await getToken();
       const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       if(type==="peer"){
-        await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Help-${task.Title||task.Description}`,TaskTitle:task.Title||task.Description,RequestingPMEmail:myEmail,RequestingPMName:myEmp?.Name||myEmail,PropertyName:task.PropertyName||"",Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",SourceActivityId:task.id,CreatedAt:new Date().toISOString()});
+        await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Help-${taskLabel}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:myEmail,RequestingPMName:myEmp?.Name||myEmail,PropertyName:task.PropertyName||"",Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",SourceActivityId:task.id,CreatedAt:new Date().toISOString()});
       }else if(type==="tag"){
-        await gPost(tk,lUrl(CONFIG.listTags),{Title:`Tag-${task.Title||task.Description}`,TaskTitle:task.Title||task.Description,FromEmail:myEmail,FromName:myEmp?.Name||myEmail,ToEmail:opts.tagTarget,ToName:opts.tagTarget,PropertyName:task.PropertyName||"",Message:opts.tagMsg||"",Status:"Pending",SourceActivityId:task.id,CreatedAt:new Date().toISOString()});
+        await gPost(tk,lUrl(CONFIG.listTags),{Title:`Tag-${taskLabel}`,TaskTitle:task.Description||task.Title,FromEmail:myEmail,FromName:myEmp?.Name||myEmail,ToEmail:opts.tagTarget,ToName:opts.tagTarget,PropertyName:task.PropertyName||"",Message:opts.tagMsg||"",Status:"Pending",SourceActivityId:task.id,CreatedAt:new Date().toISOString()});
       }else if(type==="va"&&opts.assignedVA){
         await gPost(tk,lUrl(CONFIG.listVAActivity),{Title:`Task-${opts.vaDesc||task.Title}`,ActivityType:"Task",VAEmail:opts.assignedVA.Email,VAName:opts.assignedVA.Name,PropertyName:opts.vaProp,Category:opts.vaCategory||task.Category,Priority:task.Priority||"Normal",Notes:opts.vaNotes||"",Status:"Queued",AssignedByEmail:myEmail,AssignedByName:myEmp?.Name||myEmail,ActivityDate:new Date().toISOString(),Source:"Assigned"});
       }
@@ -1595,7 +1601,7 @@ function App(){
   const TABS=useMemo(()=>{
     if(!role)return[];
     const t=[];
-    if(role==="pm"||role==="admin"){t.push({k:"checklist",l:"My Checklist"});}
+    if(isAnyPM(role)||role==="admin"){t.push({k:"checklist",l:"My Checklist"});}
     if(role==="ar"){t.push({k:"artasks",l:"My Tasks"});}
     t.push({k:"active",l:"Active"});
     t.push({k:"helpqueue",l:`Help Queue${(data?.helpQueue?.filter(q=>q.Status==="Open").length||0)>0?" ("+data.helpQueue.filter(q=>q.Status==="Open").length+")":""}`});
@@ -1612,6 +1618,8 @@ function App(){
   const finalTabs=useMemo(()=>{
     if(!role)return[];
     const defs={
+      "pm-onsite":[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"oneonone",l:"My 1:1 History"}],
+      "pm-remote":[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"oneonone",l:"My 1:1 History"}],
       pm:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"oneonone",l:"My 1:1 History"}],
       ar:[{k:"artasks",l:"My Tasks"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"}],
       regional:[{k:"regional",l:"Regional Overview"},{k:"oneonone",l:"1:1 Sessions"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
@@ -1625,9 +1633,10 @@ function App(){
 
   // Use state-persisted resolved email — avoids null-myEmp race on first render
   const myEmail=myEmailState||(myEmp?.Email||acct?.username||"").toLowerCase();
-  const myTasks=(data?.activity||[]).filter(a=>{
+
+  // Guard: if email not yet resolved, show nothing rather than everything
+  const myTasks=!myEmail?([]): (data?.activity||[]).filter(a=>{
     if(a.PMEmail?.toLowerCase()!==myEmail)return false;
-    // Include if cadence is set, OR if it has a RecurringTaskId (catch items where cadence patch is pending)
     const hasCadence=a.Cadence==="Daily"||a.Cadence==="Weekly"||a.Cadence==="Monthly"||a.Cadence==="Ad-Hoc";
     const isRecurring=!!a.RecurringTaskId;
     const isAdhoc=a.ActivityType==="Ad-Hoc"||a.Source==="Assigned";
@@ -1638,7 +1647,7 @@ function App(){
 
   if(!acct)return<div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>🏢</div><div style={{fontSize:15,color:C.t7,marginBottom:8}}>Signing in to PM Hub…</div></div></div>;
   if(role==="denied")return<div style={S.page}><AccessDenied email={myEmail}/></div>;
-  if(loading)return<div style={S.page}><Spinner/></div>;
+  if(loading||!myEmail)return<div style={S.page}><Spinner/></div>;
 
   return<div style={S.page}>
     {/* Header */}
@@ -1693,7 +1702,7 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,fl}){
   const[viewSession,setViewSession]=useState(null);
 
   const isRegional=role==="regional"||role==="admin";
-  const isPM=role==="pm"||role==="admin";
+  const isPM=isAnyPM(role)||role==="admin";
   const pms=data?.pms||[];
   const sessions=(data?.oneOnOneSessions||[]).sort((a,b)=>(b.SessionDate||"").localeCompare(a.SessionDate||""));
 
