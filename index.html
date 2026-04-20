@@ -1307,6 +1307,7 @@ function App(){
   const[role,setRole]=useState(null);
   const[myEmp,setMyEmp]=useState(null);
   const[myEmailState,setMyEmailState]=useState("");
+  const[viewMode,setViewMode]=useState("admin"); // admin | pm-remote
   const[loading,setLoading]=useState(true);
   const[tab,setTab]=useState(null);
   const[flash,setFlash]=useState("");
@@ -1612,7 +1613,7 @@ function App(){
     if(role==="regional"||role==="admin"){t.push({k:"history",l:"History"});}
     if(role==="admin"||role==="regional"){t.push({k:"admin",l:"Admin"});}
     return t;
-  },[role,data?.helpQueue]);
+  },[role,effectiveRole,data?.helpQueue]);
 
   // Simplify: clean tabs
   const finalTabs=useMemo(()=>{
@@ -1625,7 +1626,7 @@ function App(){
       regional:[{k:"regional",l:"Regional Overview"},{k:"oneonone",l:"1:1 Sessions"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
       admin:[{k:"checklist",l:"My Checklist"},{k:"active",l:"Active"},{k:"helpqueue",l:"Help Queue"},{k:"vatasks",l:"VA Tasks"},{k:"regional",l:"Regional Overview"},{k:"oneonone",l:"1:1 Sessions"},{k:"history",l:"History"},{k:"admin",l:"Admin"}],
     };
-    const tabs=defs[role]||[];
+    const tabs=defs[effectiveRole]||defs[role]||[];
     // Annotate help queue with count
     const openHQ=(data?.helpQueue||[]).filter(q=>q.Status==="Open").length;
     return tabs.map(t=>t.k==="helpqueue"?{...t,l:`Help Queue${openHQ>0?" ("+openHQ+")":""}`}:t);
@@ -1645,6 +1646,10 @@ function App(){
   const adhocTasks=(data?.activity||[]).filter(a=>a.Source==="Assigned"||a.ActivityType==="Ad-Hoc");
   const arTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail);
 
+  // For admin users: effective role can be toggled between admin and pm-remote
+  const effectiveRole=(role==="admin"&&viewMode==="pm-remote")?"pm-remote":role;
+  const finalTabsForRole=effectiveRole;
+
   if(!acct)return<div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>🏢</div><div style={{fontSize:15,color:C.t7,marginBottom:8}}>Signing in to PM Hub…</div></div></div>;
   if(role==="denied")return<div style={S.page}><AccessDenied email={myEmail}/></div>;
   if(loading||!myEmail)return<div style={S.page}><Spinner/></div>;
@@ -1658,7 +1663,12 @@ function App(){
       </div>
       <div style={{textAlign:"right"}}>
         <div style={S.hdrUser}>{myEmp?.Name||acct.name||myEmail}</div>
-        <div style={S.hdrRole}>{role?.toUpperCase()}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end",marginTop:3}}>
+          <div style={S.hdrRole}>{effectiveRole?.toUpperCase()}</div>
+          {role==="admin"&&<button onClick={()=>setViewMode(v=>v==="admin"?"pm-remote":"admin")} style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:99,border:"none",cursor:"pointer",background:viewMode==="pm-remote"?C.g5:C.t1,color:viewMode==="pm-remote"?C.dk:C.t7,fontFamily:font}}>
+            {viewMode==="pm-remote"?"→ Admin View":"→ PM View"}
+          </button>}
+        </div>
       </div>
     </div>
 
@@ -1671,7 +1681,7 @@ function App(){
     </div>
 
     {/* Views */}
-    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={role} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} reviews={data?.reviews||[]} fl={fl}/>}
+    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={effectiveRole} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} reviews={data?.reviews||[]} fl={fl}/>}
     {tab==="active"&&<ActiveView tasks={(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} fl={fl}/>}
     {tab==="helpqueue"&&<HelpQueueView queue={data?.helpQueue||[]} tags={(data?.tags||[]).filter(t=>t.ToEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} myEmp={myEmp} onClaim={claimHelp} onResolveQueue={resolveQueue} fl={fl}/>}
     {tab==="vatasks"&&<VATasksView data={data} reviews={data?.reviews||[]} allResponses={data?.allResponses||[]} myEmail={myEmail} myEmp={myEmp} role={role} onReplyReview={replyToReview} onResolveReview={resolveReview} onSubmitVATask={submitVATask} fl={fl}/>}
