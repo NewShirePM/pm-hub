@@ -971,12 +971,20 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
   const pms=data?.pms||[];
   const allProps=data?.properties||[];
-  const people=[{label:"All PMs",val:"all"},...pms.map(p=>({label:`${p.Name} (PM)`,val:p.Email})),{label:"Leslie (AR Specialist)",val:"leslie"},{label:"Cara Munson (Regional)",val:"cara"}];
+  // Build applies-to options: groups first, then individual PMs only (not AR/Regional)
+  const onsitePMs=pms.filter(p=>p.PMHubRole==="pm-onsite"||p.PMHubRole==="pm");
+  const remotePMs=pms.filter(p=>p.PMHubRole==="pm-remote");
+  const people=[
+    {label:"All PMs",val:"all-pm",role:"all-pm"},
+    {label:"All Onsite PMs",val:"pm-onsite",role:"pm-onsite"},
+    {label:"All Remote PMs",val:"pm-remote",role:"pm-remote"},
+    ...pms.map(p=>({label:p.Name,val:p.Email,role:p.PMHubRole||"pm"})),
+  ];
   const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
 
   function startEdit(rec){
     setEditId(rec.id);
-    setEditFields({desc:rec.Description||"",appliesTo:rec.AppliesToName||"All PMs",cadence:rec.Cadence||"Daily",category:rec.Category||"",priority:rec.Priority||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5});
+    setEditFields({desc:rec.Description||"",appliesTo:rec.AppliesToEmail||rec.AppliesToRole||"all-pm",cadence:rec.Cadence||"Daily",category:rec.Category||"",priority:rec.Priority||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5});
   }
 
   function saveEdit(rec){
@@ -1022,7 +1030,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     return<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:14,marginTop:8}}>
       <RField label="Task Description"><input style={inputS} value={fields.desc} onChange={e=>setFields(p=>({...p,desc:e.target.value}))}/></RField>
       <div style={{...S.row,marginBottom:8}}>
-        <div style={{flex:2}}><label style={S.label}>Applies To</label><select style={selS} value={fields.appliesTo} onChange={e=>setFields(p=>({...p,appliesTo:e.target.value}))}>{people.map(p=><option key={p.val} value={p.label}>{p.label}</option>)}</select></div>
+        <div style={{flex:2}}><label style={S.label}>Applies To</label><select style={selS} value={fields.appliesTo} onChange={e=>setFields(p=>({...p,appliesTo:e.target.value}))}>{people.map(p=><option key={p.val} value={p.val}>{p.label}</option>)}</select></div>
         <div style={{flex:1}}><label style={S.label}>Category</label><select style={selS} value={fields.category} onChange={e=>setFields(p=>({...p,category:e.target.value}))}><option value="">Select...</option>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
         <div style={{flex:1}}><label style={S.label}>Priority</label><select style={selS} value={fields.priority} onChange={e=>setFields(p=>({...p,priority:e.target.value}))}>{["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}</select></div>
       </div>
@@ -1524,9 +1532,18 @@ function App(){
       if(fields.dayOfMonth!==undefined)patch.DayOfMonth=fields.dayOfMonth;
       if(fields.dueDayOfMonth!==undefined)patch.DueDayOfMonth=fields.dueDayOfMonth;
       if(fields.appliesTo){
-        const pm=data.pms?.find(p=>p.Name===fields.appliesTo||fields.appliesTo.startsWith(p.Name));
-        if(pm){patch.AppliesToEmail=pm.Email;patch.AppliesToName=pm.Name;}
-        else{patch.AppliesToEmail="";patch.AppliesToName=fields.appliesTo;}
+        const sel=fields.appliesTo;
+        if(sel==="all-pm"||sel==="All PMs"){
+          patch.AppliesToEmail="";patch.AppliesToName="All PMs";patch.AppliesToRole="all-pm";
+        } else if(sel==="pm-onsite"||sel==="All Onsite PMs"){
+          patch.AppliesToEmail="";patch.AppliesToName="All Onsite PMs";patch.AppliesToRole="pm-onsite";
+        } else if(sel==="pm-remote"||sel==="All Remote PMs"){
+          patch.AppliesToEmail="";patch.AppliesToName="All Remote PMs";patch.AppliesToRole="pm-remote";
+        } else {
+          const pm=data.pms?.find(p=>p.Email===sel||p.Name===sel);
+          if(pm){patch.AppliesToEmail=pm.Email;patch.AppliesToName=pm.Name;patch.AppliesToRole=pm.PMHubRole||"pm";}
+          else{patch.AppliesToEmail="";patch.AppliesToName=sel;patch.AppliesToRole="pm";}
+        }
       }
       await gPatch(tk,iUrl(CONFIG.listRecurring,id),patch);
       await loadAll();
@@ -1538,7 +1555,15 @@ function App(){
       const tk=await getToken();
       const myEmail=(myEmp?.Email||acct.username).toLowerCase();
       const pm=data.pms?.find(p=>p.Name===fields.appliesTo||fields.appliesTo?.startsWith(p.Name));
-      await gPost(tk,lUrl(CONFIG.listRecurring),{Title:`RT-${uid()}`,Description:fields.desc,AppliesToEmail:pm?.Email||"",AppliesToName:fields.appliesTo||"All PMs",AppliesToRole:"pm",Category:fields.category,Cadence:fields.cadence,Priority:fields.priority||"Normal",ContextNotes:fields.contextNotes||"",AdminNotes:fields.adminNotes||"",OnTimeCutoff:fields.onTimeCutoff||"17:00",DayOfWeek:fields.dayOfWeek??0,DueDayOfWeek:fields.dueDayOfWeek??2,DayOfMonth:fields.dayOfMonth??1,DueDayOfMonth:fields.dueDayOfMonth??5,IsActive:true,CreatedByEmail:myEmail});
+      const appSel=fields.appliesTo;
+      let appEmail="",appName="All PMs",appRole="all-pm";
+      if(appSel==="pm-onsite"||appSel==="All Onsite PMs"){appName="All Onsite PMs";appRole="pm-onsite";}
+      else if(appSel==="pm-remote"||appSel==="All Remote PMs"){appName="All Remote PMs";appRole="pm-remote";}
+      else if(appSel&&appSel!=="all-pm"&&appSel!=="All PMs"){
+        const selPM=data.pms?.find(p=>p.Email===appSel||p.Name===appSel);
+        if(selPM){appEmail=selPM.Email;appName=selPM.Name;appRole=selPM.PMHubRole||"pm";}
+      }
+      await gPost(tk,lUrl(CONFIG.listRecurring),{Title:`RT-${uid()}`,Description:fields.desc,AppliesToEmail:appEmail,AppliesToName:appName,AppliesToRole:appRole,Category:fields.category,Cadence:fields.cadence,Priority:fields.priority||"Normal",ContextNotes:fields.contextNotes||"",AdminNotes:fields.adminNotes||"",OnTimeCutoff:fields.onTimeCutoff||"17:00",DayOfWeek:fields.dayOfWeek??0,DueDayOfWeek:fields.dueDayOfWeek??2,DayOfMonth:fields.dayOfMonth??1,DueDayOfMonth:fields.dueDayOfMonth??5,IsActive:true,CreatedByEmail:myEmail});
       await loadAll();
     }catch(e){fl("Error adding task: "+e.message);}
   }
