@@ -107,16 +107,16 @@ const S={
 // ============================================================
 // HELPERS
 // ============================================================
-function getCadence(val){
+function getChoiceVal(val){
   if(!val)return"";
   if(typeof val==="string"){
-    // Handle JSON object stored as string by Power Automate
     if(val.startsWith("{"))try{return JSON.parse(val)?.Value||"";}catch{}
     return val;
   }
   if(typeof val==="object")return val?.Value||"";
   return String(val);
 }
+function getCadence(val){return getChoiceVal(val);}
 function today(){return new Date().toISOString().slice(0,10);}
 function fD(d){if(!d)return"—";return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"});}
 function fT(d){if(!d)return"—";return new Date(d).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
@@ -364,35 +364,35 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}
   const dueSoon=dl!==null&&dl<=3&&dl>0&&task.Status!=="Completed";
 
   let leftBorder=C.b2;
-  if(task.Status==="Missed")leftBorder=C.er;
+  if(getChoiceVal(task.Status)==="Missed")leftBorder=C.er;
   else if(overdue)leftBorder=C.er;
   else if(dueSoon)leftBorder=C.wn;
-  else if(task.Status==="Completed")leftBorder=C.ok;
-  else if(task.Priority==="Urgent")leftBorder=C.er;
-  else if(task.Priority==="High")leftBorder=C.wn;
+  else if(getChoiceVal(task.Status)==="Completed")leftBorder=C.ok;
+  else if(getChoiceVal(task.Priority)==="Urgent")leftBorder=C.er;
+  else if(getChoiceVal(task.Priority)==="High")leftBorder=C.wn;
 
-  return<div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.b1}`,opacity:task.Status==="Completed"?0.6:1}}>
+  return<div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.b1}`,opacity:getChoiceVal(task.Status)==="Completed"?0.6:1}}>
     <span style={{fontSize:15,flexShrink:0}}>{catIcon[task.Category]||"📋"}</span>
     <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>onOpenDetail&&onOpenDetail(task)}>
-      <div style={{fontSize:13,fontWeight:500,color:task.Status==="Missed"?C.er:C.t7,textDecoration:task.Status==="Completed"?"line-through":"none"}}>
+      <div style={{fontSize:13,fontWeight:500,color:getChoiceVal(task.Status)==="Missed"?C.er:C.t7,textDecoration:getChoiceVal(task.Status)==="Completed"?"line-through":"none"}}>
         {taskLabel}
         {task.ContextNotes&&<span style={{fontSize:10,color:C.t4,marginLeft:6,fontWeight:400}}>tap for details ›</span>}
       </div>
       <div style={{fontSize:11,color:C.b4,marginTop:2,display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         <span>{task.PropertyName||"General"}</span>
-        {task.Priority!=="Normal"&&<Badge type={task.Priority==="Urgent"?"error":"warning"}>{task.Priority}</Badge>}
-        {task.Status==="Completed"&&<Badge type="success">Done {task.CompletionStatus==="Late"?"(Late)":""}</Badge>}
-        {task.Status==="Missed"&&<Badge type="error">Missed</Badge>}
-        {task.Status==="Help Needed"&&<Badge type="warning">Help Needed</Badge>}
-        {task.Status==="In Progress"&&<Badge type="success" dot>In Progress</Badge>}
+        {task.Priority!=="Normal"&&<Badge type={getChoiceVal(task.Priority)==="Urgent"?"error":"warning"}>{getChoiceVal(task.Priority)}</Badge>}
+        {getChoiceVal(task.Status)==="Completed"&&<Badge type="success">Done {task.CompletionStatus==="Late"?"(Late)":""}</Badge>}
+        {getChoiceVal(task.Status)==="Missed"&&<Badge type="error">Missed</Badge>}
+        {getChoiceVal(task.Status)==="Help Needed"&&<Badge type="warning">Help Needed</Badge>}
+        {getChoiceVal(task.Status)==="In Progress"&&<Badge type="success" dot>In Progress</Badge>}
         {overdue&&task.Status!=="Missed"&&<span style={{fontSize:10,color:C.er,fontWeight:700}}>⚠ Overdue</span>}
         {dueSoon&&task.Status!=="Completed"&&<span style={{fontSize:10,color:C.wn,fontWeight:700}}>Due in {dl}d</span>}
         {task.DueDate&&task.Status!=="Completed"&&!overdue&&!dueSoon&&<span style={{fontSize:10,color:C.t4}}>Due {fD(task.DueDate)}</span>}
       </div>
     </div>
     {canAct&&task.Status!=="Completed"&&task.Status!=="Missed"&&<div style={{display:"flex",gap:4,flexShrink:0}}>
-      {task.Status==="Queued"&&<button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>onStart&&onStart(task)}>▶ Start</button>}
-      {task.Status==="In Progress"&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>✓ Done</button>}
+      {getChoiceVal(task.Status)==="Queued"&&<button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>onStart&&onStart(task)}>▶ Start</button>}
+      {getChoiceVal(task.Status)==="In Progress"&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>✓ Done</button>}
       <button style={{...S.btnO(C.wn,C.wn),...S.xs}} onClick={()=>onFlagHelp&&onFlagHelp(task)}>🚩</button>
     </div>}
   </div>;
@@ -403,7 +403,7 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}
 // ============================================================
 function ChecklistSection({label,icon,tasks,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail,defaultOpen=true}){
   const[open,setOpen]=useState(defaultOpen);
-  const done=tasks.filter(t=>t.Status==="Completed").length;
+  const done=tasks.filter(t=>getChoiceVal(t.Status)==="Completed").length;
   const total=tasks.length;
   const pct=total?Math.round(done/total*100):0;
   return<div style={S.card}>
@@ -494,8 +494,8 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
   const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&t.Status!=="Missed");
   const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&t.Status!=="Missed");
   const adhoc=tasks.filter(t=>getCadence(t.Cadence)==="Ad-Hoc"&&t.Status!=="Completed"&&t.Status!=="Missed");
-  const completedToday=tasks.filter(t=>t.Status==="Completed"&&t.CompletedAt?.slice(0,10)===today());
-  const missed=tasks.filter(t=>t.Status==="Missed");
+  const completedToday=tasks.filter(t=>getChoiceVal(t.Status)==="Completed"&&t.CompletedAt?.slice(0,10)===today());
+  const missed=tasks.filter(t=>getChoiceVal(t.Status)==="Missed");
   const totalActive=daily.length+weekly.length+monthly.length+adhoc.length;
   const doneToday=completedToday.length;
   const onTimePct=completedToday.length?Math.round(completedToday.filter(t=>t.CompletionStatus==="On Time").length/completedToday.length*100):null;
@@ -513,7 +513,7 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
       <KPI label="Today Complete" value={doneToday} color={doneToday>0?C.ok:C.b4}/>
       <KPI label="Remaining" value={totalActive-doneToday} color={totalActive-doneToday>0?C.wn:C.ok}/>
       {onTimePct!==null&&<KPI label="On Time %" value={`${onTimePct}%`} color={onTimePct>=80?C.ok:onTimePct>=60?C.wn:C.er}/>}
-      <KPI label="Help Needed" value={tasks.filter(t=>t.Status==="Help Needed").length} color={tasks.filter(t=>t.Status==="Help Needed").length?C.wn:C.ok}/>
+      <KPI label="Help Needed" value={tasks.filter(t=>getChoiceVal(t.Status)==="Help Needed").length} color={tasks.filter(t=>getChoiceVal(t.Status)==="Help Needed").length?C.wn:C.ok}/>
       <KPI label="Missed" value={missed.length} color={missed.length?C.er:C.ok}/>
       <KPI label="Ad-Hoc" value={adhoc.length} color={adhoc.length?C.inf:C.b4}/>
     </div>
@@ -549,7 +549,7 @@ function ActiveView({tasks,role,myEmail,onStart,onComplete,onFlagHelp,fl}){
   const[search,setSearch]=useState("");
   const[detailTask,setDetailTask]=useState(null);
   const filtered=tasks.filter(t=>{
-    if(t.Status==="Completed"||t.Status==="Missed")return false;
+    if(getChoiceVal(t.Status)==="Completed"||getChoiceVal(t.Status)==="Missed")return false;
     if(filter!=="all"&&t.Category!==filter)return false;
     if(search&&!((t.Title||t.Description||"").toLowerCase().includes(search.toLowerCase())))return false;
     return true;
@@ -596,7 +596,7 @@ function HelpQueueView({queue,tags,role,myEmail,myEmp,onClaim,onResolveQueue,fl}
           {t.Message&&<div style={{fontSize:12,color:C.b6,marginTop:4,fontStyle:"italic"}}>"{t.Message}"</div>}
         </div>
         <div style={{display:"flex",gap:4,flexShrink:0}}>
-          <Badge type="gold">{t.Status}</Badge>
+          <Badge type="gold">{getChoiceVal(t.Status)}</Badge>
           <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolveQueue&&onResolveQueue("tag",t.id)}>✓ Done</button>
         </div>
       </div>)}
@@ -727,9 +727,9 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
         {myActivityProps.slice(0,6).map((p,i)=>{
           const acts=vaActivities.filter(a=>a.PropertyName===p.PropertyName||a.PropertyName===p.Title);
-          const done=acts.filter(a=>a.Status==="Completed").length;
-          const pending=acts.filter(a=>a.Status==="Queued"||a.Status==="In Progress").length;
-          const blocked=acts.filter(a=>a.Status==="Blocked").length;
+          const done=acts.filter(a=>getChoiceVal(a.Status)==="Completed").length;
+          const pending=acts.filter(a=>getChoiceVal(a.Status)==="Queued"||getChoiceVal(a.Status)==="In Progress").length;
+          const blocked=acts.filter(a=>getChoiceVal(a.Status)==="Blocked").length;
           const portfolio=data?.portfolios?.find(pf=>pf.PropertyId===p.Title||pf.PropertyId===p.id);
           const va=portfolio&&data?.vas?.find(v=>v.Email?.toLowerCase()===portfolio.VAEmail?.toLowerCase());
           return<div key={p.id||i} style={{...S.card,flex:"1 1 220px",minWidth:200,padding:12,borderLeft:`3px solid ${blocked?C.er:pending?C.wn:C.ok}`,marginBottom:0}}>
@@ -794,7 +794,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
               <td style={{...S.td,fontSize:11}}>{a.PropertyName}</td>
               <td style={{...S.td,fontWeight:500}}>{a.VAName}</td>
               <td style={S.td}>{a.Title?.replace(/^Task-/,"")}<br/>{a.Notes&&<span style={{fontSize:10,color:C.b4}}>💬 {a.Notes?.slice(0,60)}</span>}</td>
-              <td style={S.td}><Badge type={a.Status==="Completed"?"success":a.Status==="Blocked"?"error":a.Status==="Queued"?"neutral":"warning"}>{a.Status}</Badge></td>
+              <td style={S.td}><Badge type={getChoiceVal(a.Status)==="Completed"?"success":getChoiceVal(a.Status)==="Blocked"?"error":getChoiceVal(a.Status)==="Queued"?"neutral":"warning"}>{a.Status}</Badge></td>
             </tr>)}
             {!vaActivities.length&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No activity in the last 7 days.</td></tr>}
           </tbody>
@@ -840,10 +840,10 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggl
     return true;
   });
   const total=filteredTasks.length;
-  const done=filteredTasks.filter(t=>t.Status==="Completed").length;
+  const done=filteredTasks.filter(t=>getChoiceVal(t.Status)==="Completed").length;
   const late=filteredTasks.filter(t=>t.CompletionStatus==="Late").length;
   // Exclude Out PMs from missed count
-  const missed=filteredTasks.filter(t=>t.Status==="Missed"&&!outPMs.has(t.PMEmail?.toLowerCase())).length;
+  const missed=filteredTasks.filter(t=>getChoiceVal(t.Status)==="Missed"&&!outPMs.has(t.PMEmail?.toLowerCase())).length;
   const onTimePct=done?Math.round((done-late)/done*100):null;
   const openHelp=queue.filter(q=>q.Status==="Open").length;
   const coverage=queue.filter(q=>q.IsCoverage).length;
@@ -851,10 +851,10 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggl
   const pmStats=pms.map(pm=>{
     const isOut=pm.PMTrackerStatus==="Out";
     const pmTasks=filteredTasks.filter(t=>t.PMEmail?.toLowerCase()===pm.Email?.toLowerCase());
-    const pmDone=pmTasks.filter(t=>t.Status==="Completed").length;
+    const pmDone=pmTasks.filter(t=>getChoiceVal(t.Status)==="Completed").length;
     const pmLate=pmTasks.filter(t=>t.CompletionStatus==="Late").length;
     // Don't count missed against Out PMs
-    const pmMissed=isOut?0:pmTasks.filter(t=>t.Status==="Missed").length;
+    const pmMissed=isOut?0:pmTasks.filter(t=>getChoiceVal(t.Status)==="Missed").length;
     return{...pm,isOut,total:pmTasks.length,done:pmDone,late:pmLate,missed:pmMissed,onTimePct:pmDone?Math.round((pmDone-pmLate)/pmDone*100):null};
   });
 
@@ -977,8 +977,8 @@ function HistoryView({allTasks,pms,role,dfFrom,dfTo,setDfFrom,setDfTo}){
               <td style={{...S.td,maxWidth:240}}>{t.Title||t.Description}</td>
               <td style={{...S.td,fontSize:11}}>{t.Category}</td>
               <td style={{...S.td,fontSize:11}}>{t.PropertyName||"General"}</td>
-              <td style={S.td}><Badge type="neutral">{t.Cadence}</Badge></td>
-              <td style={S.td}><Badge type={t.Status==="Completed"?"success":t.Status==="Missed"?"error":"warning"}>{t.Status}</Badge></td>
+              <td style={S.td}><Badge type="neutral">{getCadence(t.Cadence)}</Badge></td>
+              <td style={S.td}><Badge type={getChoiceVal(t.Status)==="Completed"?"success":getChoiceVal(t.Status)==="Missed"?"error":"warning"}>{getChoiceVal(t.Status)}</Badge></td>
               <td style={S.td}>{t.CompletionStatus&&<Badge type={t.CompletionStatus==="On Time"?"success":t.CompletionStatus==="Late"?"warning":"error"}>{t.CompletionStatus}</Badge>}</td>
             </tr>)}
             {!filtered.length&&<tr><td colSpan={8} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No history records for this period.</td></tr>}
@@ -1018,7 +1018,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
   function startEdit(rec){
     setEditId(rec.id);
-    setEditFields({desc:rec.Description||"",appliesTo:rec.AppliesToEmail||rec.AppliesToRole||"all-pm",cadence:rec.Cadence||"Daily",category:rec.Category||"",priority:rec.Priority||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5});
+    setEditFields({desc:rec.Description||"",appliesTo:rec.AppliesToEmail||rec.AppliesToRole||"all-pm",cadence:rec.Cadence||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5});
   }
 
   function saveEdit(rec){
@@ -1124,7 +1124,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
   }
 
   const actAdhoc=adhocTasks.filter(t=>t.Status!=="Completed"&&t.Status!=="Missed");
-  const doneAdhoc=adhocTasks.filter(t=>t.Status==="Completed"||t.Status==="Missed");
+  const doneAdhoc=adhocTasks.filter(t=>getChoiceVal(t.Status)==="Completed"||getChoiceVal(t.Status)==="Missed");
 
   return<div style={S.content}>
     {/* Recurring Task Management */}
@@ -1205,7 +1205,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
               {t.ContextNotes&&!isEditing&&<div style={{fontSize:10,color:C.b3,marginTop:2,fontStyle:"italic"}}>"{t.ContextNotes.slice(0,70)}…"</div>}
             </div>
             <div style={{display:"flex",gap:4,flexShrink:0}}>
-              <Badge type="warning">{t.Status}</Badge>
+              <Badge type="warning">{getChoiceVal(t.Status)}</Badge>
               <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>isEditing?setAdhocEditId(null):startAdhocEdit(t)}>{isEditing?"✕ Cancel":"✎ Edit"}</button>
               <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Mark this task as Missed?"))onMissAdhoc&&onMissAdhoc(t);}}>✗ Miss</button>
             </div>
@@ -1237,7 +1237,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         {doneAdhoc.slice(0,5).map((t,i)=><div key={t.id||i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.b1}`}}>
           <span style={{fontSize:12,flex:1,color:C.b6}}>{t.Title||t.Description}</span>
           <span style={{fontSize:11,color:C.b4}}>{fD(t.DueDate)}</span>
-          <Badge type={t.Status==="Completed"?"success":"error"}>{t.Status}</Badge>
+          <Badge type={getChoiceVal(t.Status)==="Completed"?"success":"error"}>{getChoiceVal(t.Status)}</Badge>
         </div>)}
       </div>}
     </div>
@@ -1541,7 +1541,7 @@ function App(){
       await gPatch(tk,`${SITE}/lists/${CONFIG.listEmployees}/items/${pm.id}/fields`,{PMTrackerStatus:newStatus});
       if(!isOut){
         // Mark Out: flag their Queued tasks as coverage and push to help queue
-        const pmTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===pm.Email?.toLowerCase()&&a.Status==="Queued");
+        const pmTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getChoiceVal(a.Status)==="Queued");
         for(const task of pmTasks){
           await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name});
           await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Coverage: ${task.Description||task.Title}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:pm.Email,RequestingPMName:pm.Name,Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name,Notes:`Auto-generated: ${pm.Name} is marked Out`,CreatedAt:new Date().toISOString()});
@@ -1549,7 +1549,7 @@ function App(){
         fl(`${pm.Name} marked Out — ${pmTasks.length} tasks sent to Help Queue`);
       } else {
         // Mark In: remove coverage flag from their unclaimed tasks
-        const coverageTasks=(data?.activity||[]).filter(a=>a.CoverageForEmail?.toLowerCase()===pm.Email?.toLowerCase()&&a.Status==="Queued");
+        const coverageTasks=(data?.activity||[]).filter(a=>a.CoverageForEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getChoiceVal(a.Status)==="Queued");
         for(const task of coverageTasks){
           await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:false,CoverageForEmail:"",CoverageForName:""});
         }
@@ -1834,10 +1834,10 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,fl}){
   function computeSnap(pmEmail){
     const sevenAgo=new Date();sevenAgo.setDate(sevenAgo.getDate()-7);
     const pmTasks=allTasks.filter(t=>t.PMEmail?.toLowerCase()===pmEmail?.toLowerCase()&&new Date(t.ActivityDate||t.DueDate)>=sevenAgo);
-    const done=pmTasks.filter(t=>t.Status==="Completed");
+    const done=pmTasks.filter(t=>getChoiceVal(t.Status)==="Completed");
     const onTime=done.filter(t=>t.CompletionStatus==="On Time"||!t.CompletionStatus);
     const late=done.filter(t=>t.CompletionStatus==="Late");
-    const missed=pmTasks.filter(t=>t.Status==="Missed");
+    const missed=pmTasks.filter(t=>getChoiceVal(t.Status)==="Missed");
     const helpQ=(data?.helpQueue||[]).filter(q=>q.RequestingPMEmail?.toLowerCase()===pmEmail?.toLowerCase()&&q.Status==="Open");
     const onTimePct=done.length?Math.round(onTime.length/done.length*100):null;
     const from=new Date(sevenAgo).toLocaleDateString("en-US",{month:"short",day:"numeric"});
