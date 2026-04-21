@@ -107,6 +107,16 @@ const S={
 // ============================================================
 // HELPERS
 // ============================================================
+function getCadence(val){
+  if(!val)return"";
+  if(typeof val==="string"){
+    // Handle JSON object stored as string by Power Automate
+    if(val.startsWith("{"))try{return JSON.parse(val)?.Value||"";}catch{}
+    return val;
+  }
+  if(typeof val==="object")return val?.Value||"";
+  return String(val);
+}
 function today(){return new Date().toISOString().slice(0,10);}
 function fD(d){if(!d)return"—";return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"});}
 function fT(d){if(!d)return"—";return new Date(d).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
@@ -480,10 +490,10 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
   const[detailTask,setDetailTask]=useState(null);
   const[helpTask,setHelpTask]=useState(null);
 
-  const daily=tasks.filter(t=>t.Cadence==="Daily"&&t.Status!=="Missed");
-  const weekly=tasks.filter(t=>t.Cadence==="Weekly"&&t.Status!=="Missed");
-  const monthly=tasks.filter(t=>t.Cadence==="Monthly"&&t.Status!=="Missed");
-  const adhoc=tasks.filter(t=>t.Cadence==="Ad-Hoc"&&t.Status!=="Completed"&&t.Status!=="Missed");
+  const daily=tasks.filter(t=>getCadence(t.Cadence)==="Daily"&&t.Status!=="Missed");
+  const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&t.Status!=="Missed");
+  const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&t.Status!=="Missed");
+  const adhoc=tasks.filter(t=>getCadence(t.Cadence)==="Ad-Hoc"&&t.Status!=="Completed"&&t.Status!=="Missed");
   const completedToday=tasks.filter(t=>t.Status==="Completed"&&t.CompletedAt?.slice(0,10)===today());
   const missed=tasks.filter(t=>t.Status==="Missed");
   const totalActive=daily.length+weekly.length+monthly.length+adhoc.length;
@@ -799,9 +809,9 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
 // ============================================================
 function ARTasksView({tasks,vaActivities,data,myEmail,myEmp,role,onStart,onComplete,onFlagHelp,onSubmitVATask,fl}){
   const arTasks=tasks.filter(t=>t.Status!=="Missed");
-  const daily=arTasks.filter(t=>t.Cadence==="Daily");
-  const weekly=arTasks.filter(t=>t.Cadence==="Weekly");
-  const monthly=arTasks.filter(t=>t.Cadence==="Monthly");
+  const daily=arTasks.filter(t=>getCadence(t.Cadence)==="Daily");
+  const weekly=arTasks.filter(t=>getCadence(t.Cadence)==="Weekly");
+  const monthly=arTasks.filter(t=>getCadence(t.Cadence)==="Monthly");
   const[detailTask,setDetailTask]=useState(null);
 
   return<div style={S.content}>
@@ -1077,9 +1087,9 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
   }
 
   // Group recurring defs by cadence+assignee
-  const daily=recurringDefs.filter(r=>r.Cadence==="Daily");
-  const weekly=recurringDefs.filter(r=>r.Cadence==="Weekly");
-  const monthly=recurringDefs.filter(r=>r.Cadence==="Monthly");
+  const daily=recurringDefs.filter(r=>getCadence(r.Cadence)==="Daily");
+  const weekly=recurringDefs.filter(r=>getCadence(r.Cadence)==="Weekly");
+  const monthly=recurringDefs.filter(r=>getCadence(r.Cadence)==="Monthly");
 
   function RecGroup({label,items,isWeekly,isMonthly}){
     if(!items.length)return null;
@@ -1135,7 +1145,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         </div>
       </div>}
       <RecGroup label="All PMs — Daily" items={daily.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)}/>
-      {pms.map(pm=><RecGroup key={pm.Email} label={`${pm.Name} — Daily`} items={daily.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase()&&r.Cadence==="Daily")}/>)}
+      {pms.map(pm=><RecGroup key={pm.Email} label={`${pm.Name} — Daily`} items={daily.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getCadence(r.Cadence)==="Daily")}/>)}
       <RecGroup label="All PMs — Weekly" items={weekly.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)} isWeekly/>
       {pms.map(pm=><RecGroup key={pm.Email+"w"} label={`${pm.Name} — Weekly`} items={weekly.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase())} isWeekly/>)}
       <RecGroup label="All PMs — Monthly" items={monthly.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)} isMonthly/>
@@ -1737,7 +1747,8 @@ function App(){
   // Guard: if email not yet resolved, show nothing rather than everything
   const myTasks=!myEmail?([]): (data?.activity||[]).filter(a=>{
     if(a.PMEmail?.toLowerCase()!==myEmail)return false;
-    const hasCadence=a.Cadence==="Daily"||a.Cadence==="Weekly"||a.Cadence==="Monthly"||a.Cadence==="Ad-Hoc";
+    const cad=getCadence(a.Cadence);
+    const hasCadence=cad==="Daily"||cad==="Weekly"||cad==="Monthly"||cad==="Ad-Hoc";
     const isRecurring=!!a.RecurringTaskId;
     const isAdhoc=a.ActivityType==="Ad-Hoc"||a.Source==="Assigned";
     return hasCadence||isRecurring||isAdhoc;
