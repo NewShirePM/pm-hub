@@ -384,15 +384,14 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}
         {getChoiceVal(task.Status)==="Completed"&&<Badge type="success">Done {task.CompletionStatus==="Late"?"(Late)":""}</Badge>}
         {getChoiceVal(task.Status)==="Missed"&&<Badge type="error">Missed</Badge>}
         {getChoiceVal(task.Status)==="Help Needed"&&<Badge type="warning">Help Needed</Badge>}
-        {getChoiceVal(task.Status)==="In Progress"&&<Badge type="success" dot>In Progress</Badge>}
+        
         {overdue&&task.Status!=="Missed"&&<span style={{fontSize:10,color:C.er,fontWeight:700}}>⚠ Overdue</span>}
         {dueSoon&&task.Status!=="Completed"&&<span style={{fontSize:10,color:C.wn,fontWeight:700}}>Due in {dl}d</span>}
         {task.DueDate&&task.Status!=="Completed"&&!overdue&&!dueSoon&&<span style={{fontSize:10,color:C.t4}}>Due {fD(task.DueDate)}</span>}
       </div>
     </div>
     {canAct&&task.Status!=="Completed"&&task.Status!=="Missed"&&<div style={{display:"flex",gap:4,flexShrink:0}}>
-      {getChoiceVal(task.Status)==="Queued"&&<button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>onStart&&onStart(task)}>▶ Start</button>}
-      {getChoiceVal(task.Status)==="In Progress"&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>✓ Done</button>}
+      {(getChoiceVal(task.Status)==="Queued"||getChoiceVal(task.Status)==="In Progress")&&canAct&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>✓ Done</button>}
       <button style={{...S.btnO(C.wn,C.wn),...S.xs}} onClick={()=>onFlagHelp&&onFlagHelp(task)}>🚩</button>
     </div>}
   </div>;
@@ -1482,14 +1481,6 @@ function App(){
     setLoading(false);
   }
 
-  async function startTask(task){
-    try{
-      const tk=await getToken();
-      await gPatch(tk,iUrl(CONFIG.listPMActivity,task.id),{Status:"In Progress"});
-      await loadAll();fl("Task started");
-    }catch(e){fl("Error: "+e.message);}
-  }
-
   async function completeTask(task,notes){
     try{
       const tk=await getToken();
@@ -1791,11 +1782,11 @@ function App(){
     </div>
 
     {/* Views */}
-    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={effectiveRole} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} onReplyReview={replyToReview} onResolveReview={resolveReview} reviews={data?.reviews||[]} fl={fl}/>}
-    {tab==="active"&&<ActiveView tasks={(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} fl={fl}/>}
+    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={effectiveRole} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={null} onComplete={completeTask} onFlagHelp={flagHelp} onReplyReview={replyToReview} onResolveReview={resolveReview} reviews={data?.reviews||[]} fl={fl}/>}
+    {tab==="active"&&<ActiveView tasks={(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} onStart={null} onComplete={completeTask} onFlagHelp={flagHelp} fl={fl}/>}
     {tab==="helpqueue"&&<HelpQueueView queue={data?.helpQueue||[]} tags={(data?.tags||[]).filter(t=>t.ToEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} myEmp={myEmp} onClaim={claimHelp} onResolveQueue={resolveQueue} fl={fl}/>}
     {tab==="vatasks"&&<VATasksView data={data} reviews={data?.reviews||[]} allResponses={data?.allResponses||[]} myEmail={myEmail} myEmp={myEmp} role={role} onReplyReview={replyToReview} onResolveReview={resolveReview} onSubmitVATask={submitVATask} fl={fl}/>}
-    {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={startTask} onComplete={completeTask} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
+    {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={null} onComplete={completeTask} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} onToggleAbsence={toggleAbsence} fl={fl}/>}
     {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} fl={fl}/>}
     {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} fl={fl}/>}
