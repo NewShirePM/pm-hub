@@ -1446,9 +1446,14 @@ function App(){
       ]);
 
       const recurringDefs=recurringRaw.map(r=>({...r.fields,id:r.id}));
-      // Build a lookup of recurring defs by ID for fast joining
+      // Build a lookup of recurring defs by BOTH OData id and fields.id (SharePoint internal ID)
+      // PS script stores fields.id as RecurringTaskId; Graph returns r.id as OData id — these differ
       const recurringById={};
-      recurringDefs.forEach(d=>{recurringById[String(d.id)]=d;});
+      recurringRaw.forEach(r=>{
+        const def={...r.fields,id:r.id};
+        recurringById[String(r.id)]=def;          // OData id (e.g. "1")
+        if(r.fields?.id)recurringById[String(r.fields.id)]=def; // SP internal id (e.g. "3")
+      });
       // Join activity with recurring def to backfill ContextNotes and other missing fields
       const activity=activityRaw.map(r=>{
         const a={...r.fields,id:r.id};
