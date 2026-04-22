@@ -1446,7 +1446,24 @@ function App(){
       ]);
 
       const recurringDefs=recurringRaw.map(r=>({...r.fields,id:r.id}));
-      const activity=activityRaw.map(r=>({...r.fields,id:r.id}));
+      // Build a lookup of recurring defs by ID for fast joining
+      const recurringById={};
+      recurringDefs.forEach(d=>{recurringById[String(d.id)]=d;});
+      // Join activity with recurring def to backfill ContextNotes and other missing fields
+      const activity=activityRaw.map(r=>{
+        const a={...r.fields,id:r.id};
+        if(a.RecurringTaskId){
+          const def=recurringById[String(a.RecurringTaskId)];
+          if(def){
+            // Backfill fields that the flow doesn't copy to PM_Activity
+            if(!a.ContextNotes&&def.ContextNotes)a.ContextNotes=def.ContextNotes;
+            if(!a.OnTimeCutoff&&def.OnTimeCutoff)a.OnTimeCutoff=def.OnTimeCutoff;
+            if(!a.DueDayOfWeek&&def.DueDayOfWeek!=null)a.DueDayOfWeek=def.DueDayOfWeek;
+            if(!a.DueDayOfMonth&&def.DueDayOfMonth!=null)a.DueDayOfMonth=def.DueDayOfMonth;
+          }
+        }
+        return a;
+      });
       const helpQueue=helpRaw.map(r=>({...r.fields,id:r.id}));
       const tags=tagsRaw.map(r=>({...r.fields,id:r.id}));
       const properties=propsRaw.map(r=>({...r.fields,id:r.id}));
