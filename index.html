@@ -355,7 +355,7 @@ function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
 // ============================================================
 // TASK CARD
 // ============================================================
-function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}){
+function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,onNA,role,myEmail}){
   const isOwn=!task.PMEmail||task.PMEmail.toLowerCase()===myEmail?.toLowerCase();
   const taskLabel=task.Description||task.Title||"";
   const canAct=isOwn||(role==="admin"||role==="regional");
@@ -391,7 +391,10 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}
       </div>
     </div>
     {canAct&&task.Status!=="Completed"&&task.Status!=="Missed"&&<div style={{display:"flex",gap:4,flexShrink:0}}>
-      {(getChoiceVal(task.Status)==="Queued"||getChoiceVal(task.Status)==="In Progress")&&canAct&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>✓ Done</button>}
+      {(getChoiceVal(task.Status)==="Queued"||getChoiceVal(task.Status)==="In Progress")&&canAct&&<>
+        <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>✓ Done</button>
+        <button style={{...S.btnO(C.b4,C.b2),...S.xs}} onClick={()=>onNA&&onNA(task)} title="Not applicable today">N/A</button>
+      </>}
       <button style={{...S.btnO(C.wn,C.wn),...S.xs}} onClick={()=>onFlagHelp&&onFlagHelp(task)}>🚩</button>
     </div>}
   </div>;
@@ -400,7 +403,7 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail}
 // ============================================================
 // CHECKLIST SECTION
 // ============================================================
-function ChecklistSection({label,icon,tasks,onStart,onComplete,onFlagHelp,onOpenDetail,role,myEmail,defaultOpen=true}){
+function ChecklistSection({label,icon,tasks,onStart,onComplete,onFlagHelp,onOpenDetail,onNA,role,myEmail,defaultOpen=true}){
   const[open,setOpen]=useState(defaultOpen);
   const done=tasks.filter(t=>getChoiceVal(t.Status)==="Completed").length;
   const total=tasks.length;
@@ -419,7 +422,7 @@ function ChecklistSection({label,icon,tasks,onStart,onComplete,onFlagHelp,onOpen
     </div>
     {open&&<div>
       {!tasks.length&&<div style={{textAlign:"center",padding:"14px 0",color:C.b3,fontSize:12,fontStyle:"italic"}}>No tasks for this period.</div>}
-      {tasks.map((t,i)=><TaskCard key={t.id||t._localId||i} task={t} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={onOpenDetail} role={role} myEmail={myEmail}/>)}
+      {tasks.map((t,i)=><TaskCard key={t.id||t._localId||i} task={t} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={onOpenDetail} onNA={onNA} role={role} myEmail={myEmail}/>)}
     </div>}
   </div>;
 }
@@ -485,17 +488,17 @@ function VAReviewSection({reviews,onReply,onResolve,myEmail}){
 // ============================================================
 // MY CHECKLIST VIEW
 // ============================================================
-function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComplete,onFlagHelp,onCompleteAdhoc,onReplyReview,onResolveReview,reviews,fl}){
+function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComplete,onNA,onFlagHelp,onCompleteAdhoc,onReplyReview,onResolveReview,reviews,fl}){
   const[detailTask,setDetailTask]=useState(null);
   const[helpTask,setHelpTask]=useState(null);
 
-  const daily=tasks.filter(t=>getCadence(t.Cadence)==="Daily"&&t.Status!=="Missed"&&(
+  const daily=tasks.filter(t=>getCadence(t.Cadence)==="Daily"&&t.Status!=="Missed"&&getChoiceVal(t.Status)!=="Not Applicable"&&(
     t.ActivityDate?.slice(0,10)===today()||getChoiceVal(t.Status)==="Completed"&&t.CompletedAt?.slice(0,10)===today()
   ));
-  const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&t.Status!=="Missed"&&(
+  const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&t.Status!=="Missed"&&getChoiceVal(t.Status)!=="Not Applicable"&&(
     getChoiceVal(t.Status)!=="Completed"||(t.CompletedAt&&(new Date()-new Date(t.CompletedAt))<7*864e5)
   )&&(t.ActivityDate&&(new Date()-new Date(t.ActivityDate))<7*864e5));
-  const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&t.Status!=="Missed"&&(
+  const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&t.Status!=="Missed"&&getChoiceVal(t.Status)!=="Not Applicable"&&(
     getChoiceVal(t.Status)!=="Completed"||(t.CompletedAt&&(new Date()-new Date(t.CompletedAt))<31*864e5)
   )&&(t.ActivityDate&&(new Date()-new Date(t.ActivityDate))<31*864e5));
   const adhoc=tasks.filter(t=>getCadence(t.Cadence)==="Ad-Hoc"&&t.Status!=="Completed"&&t.Status!=="Missed");
@@ -527,9 +530,9 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
     <VAReviewSection reviews={reviews} onReply={onReplyReview} onResolve={onResolveReview} myEmail={myEmail}/>
 
     {/* Checklist sections */}
-    <ChecklistSection label="Daily" icon="📋" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>
-    <ChecklistSection label="Weekly" icon="📅" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={!!weekly.filter(t=>t.Status!=="Completed").length}/>
-    <ChecklistSection label="Monthly" icon="🗓" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={!!monthly.filter(t=>t.Status!=="Completed").length}/>
+    <ChecklistSection label="Daily" icon="📋" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail}/>
+    <ChecklistSection label="Weekly" icon="📅" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!weekly.filter(t=>t.Status!=="Completed").length}/>
+    <ChecklistSection label="Monthly" icon="🗓" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!monthly.filter(t=>t.Status!=="Completed").length}/>
 
     {adhoc.length>0&&<div style={S.card}>
       <div style={{...S.cardT,color:C.inf}}>📌 Ad-Hoc Tasks Assigned to You ({adhoc.length})</div>
@@ -1487,6 +1490,14 @@ function App(){
     setLoading(false);
   }
 
+  async function markNA(task){
+    try{
+      const tk=await getToken();
+      await gPatch(tk,iUrl(CONFIG.listPMActivity,task.id),{Status:"Not Applicable",CompletedAt:new Date().toISOString()});
+      await loadAll();fl("Task marked N/A");
+    }catch(e){fl("Error: "+e.message);}
+  }
+
   async function completeTask(task,notes){
     try{
       const tk=await getToken();
@@ -1788,11 +1799,11 @@ function App(){
     </div>
 
     {/* Views */}
-    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={effectiveRole} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={null} onComplete={completeTask} onFlagHelp={flagHelp} onReplyReview={replyToReview} onResolveReview={resolveReview} reviews={data?.reviews||[]} fl={fl}/>}
-    {tab==="active"&&<ActiveView tasks={(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} onStart={null} onComplete={completeTask} onFlagHelp={flagHelp} fl={fl}/>}
+    {tab==="checklist"&&<MyChecklistView data={data} tasks={myTasks} role={effectiveRole} myEmail={myEmail} myEmp={myEmp} myProps={data?.properties||[]} onStart={null} onComplete={completeTask} onNA={markNA} onFlagHelp={flagHelp} onReplyReview={replyToReview} onResolveReview={resolveReview} reviews={data?.reviews||[]} fl={fl}/>}
+    {tab==="active"&&<ActiveView tasks={(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} onStart={null} onComplete={completeTask} onNA={markNA} onFlagHelp={flagHelp} fl={fl}/>}
     {tab==="helpqueue"&&<HelpQueueView queue={data?.helpQueue||[]} tags={(data?.tags||[]).filter(t=>t.ToEmail?.toLowerCase()===myEmail)} role={role} myEmail={myEmail} myEmp={myEmp} onClaim={claimHelp} onResolveQueue={resolveQueue} fl={fl}/>}
     {tab==="vatasks"&&<VATasksView data={data} reviews={data?.reviews||[]} allResponses={data?.allResponses||[]} myEmail={myEmail} myEmp={myEmp} role={role} onReplyReview={replyToReview} onResolveReview={resolveReview} onSubmitVATask={submitVATask} fl={fl}/>}
-    {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={null} onComplete={completeTask} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
+    {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={null} onComplete={completeTask} onNA={markNA} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} onToggleAbsence={toggleAbsence} fl={fl}/>}
     {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} fl={fl}/>}
     {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} fl={fl}/>}
