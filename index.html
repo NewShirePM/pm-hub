@@ -489,9 +489,15 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
   const[detailTask,setDetailTask]=useState(null);
   const[helpTask,setHelpTask]=useState(null);
 
-  const daily=tasks.filter(t=>getCadence(t.Cadence)==="Daily"&&t.Status!=="Missed");
-  const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&t.Status!=="Missed");
-  const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&t.Status!=="Missed");
+  const daily=tasks.filter(t=>getCadence(t.Cadence)==="Daily"&&t.Status!=="Missed"&&(
+    t.ActivityDate?.slice(0,10)===today()||getChoiceVal(t.Status)==="Completed"&&t.CompletedAt?.slice(0,10)===today()
+  ));
+  const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&t.Status!=="Missed"&&(
+    getChoiceVal(t.Status)!=="Completed"||(t.CompletedAt&&(new Date()-new Date(t.CompletedAt))<7*864e5)
+  )&&(t.ActivityDate&&(new Date()-new Date(t.ActivityDate))<7*864e5));
+  const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&t.Status!=="Missed"&&(
+    getChoiceVal(t.Status)!=="Completed"||(t.CompletedAt&&(new Date()-new Date(t.CompletedAt))<31*864e5)
+  )&&(t.ActivityDate&&(new Date()-new Date(t.ActivityDate))<31*864e5));
   const adhoc=tasks.filter(t=>getCadence(t.Cadence)==="Ad-Hoc"&&t.Status!=="Completed"&&t.Status!=="Missed");
   const completedToday=tasks.filter(t=>getChoiceVal(t.Status)==="Completed"&&t.CompletedAt?.slice(0,10)===today());
   const missed=tasks.filter(t=>getChoiceVal(t.Status)==="Missed");
