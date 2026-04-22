@@ -222,6 +222,7 @@ function TaskDetailModal({task,onClose,onComplete,onFlagHelp,role}){
   const[notes,setNotes]=useState("");
   const[confirming,setConfirming]=useState(false);
   if(!task)return null;
+  const taskLabel=task.Description||task.Title||"";
   const due=task.DueDate||task.DueDayOfMonth||task.DueDayOfWeek;
   const dl=task.DueDate?daysLeft(task.DueDate):null;
   return<div style={{position:"fixed",inset:0,background:"rgba(28,55,64,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
@@ -280,6 +281,8 @@ function TaskDetailModal({task,onClose,onComplete,onFlagHelp,role}){
 // FLAG HELP MODAL
 // ============================================================
 function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
+  const taskLabel=task?.Description||task?.Title||"";
+  const catList=(data?.config?.categories||["Work Orders","Marketing","Tenant Comms","Reporting","Leasing","Admin/Other"]);
   const[type,setType]=useState("peer");
   const[tagTarget,setTagTarget]=useState("");
   const[tagMsg,setTagMsg]=useState("");
