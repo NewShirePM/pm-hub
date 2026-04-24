@@ -1025,7 +1025,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
   const allProps=data?.properties||[];
   // All active staff for assignment (everyone who might get tasks)
-  const allStaff=(data?.employees||[]).filter(e=>
+  const allStaff=(data?.emps||[]).filter(e=>
     e.EmployeeActive!==false &&
     e.PMHubRole&&!["denied"].includes(e.PMHubRole)
   ).sort((a,b)=>a.Name?.localeCompare(b.Name));
