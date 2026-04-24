@@ -1013,77 +1013,7 @@ function HistoryView({allTasks,pms,role,dfFrom,dfTo,setDfFrom,setDfTo}){
 // ============================================================
 // ADMIN TAB
 // ============================================================
-function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,fl}){
-  const[editId,setEditId]=useState(null);
-  const[editFields,setEditFields]=useState({});
-  const[addOpen,setAddOpen]=useState(false);
-  const[adhocOpen,setAdhocOpen]=useState(false);
-  const[newRec,setNewRec]=useState({desc:"",appliesTo:"All PMs",cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:2,dayOfMonth:1,dueDayOfMonth:5});
-  const[newAdhoc,setNewAdhoc]=useState({desc:"",assignedTo:"",category:"Admin/Other",priority:"Normal",propertyId:"",dueDate:"",contextNotes:""});
-  const[adhocEditId,setAdhocEditId]=useState(null);
-  const[adhocEditFields,setAdhocEditFields]=useState({});
-
-  const allProps=data?.properties||[];
-  // All active staff for assignment (everyone who might get tasks)
-  const allStaff=(data?.emps||[]).filter(e=>
-    e.EmployeeActive!==false &&
-    e.PMHubRole&&!["denied"].includes(e.PMHubRole)
-  ).sort((a,b)=>a.Name?.localeCompare(b.Name));
-  const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
-
-  function startEdit(rec){
-    setEditId(rec.id);
-    const existingEmails=rec.AppliesToEmails?rec.AppliesToEmails.split(',').map(e=>e.trim()).filter(Boolean):(rec.AppliesToEmail?[rec.AppliesToEmail]:[]);
-    setEditFields({desc:rec.Description||"",appliesToAll:rec.AppliesToAll||(!existingEmails.length&&!rec.AppliesToEmails),appliesToEmails:existingEmails,cadence:getChoiceVal(rec.Cadence)||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5,biWeeklyStartDate:rec.BiWeeklyStartDate?.slice(0,10)||today(),dueMonthCycle:rec.DueMonthCycle??1,dueMonthOfQuarter:rec.DueMonthOfQuarter??1});
-  }
-
-  function saveEdit(rec,overrideFields){
-    const saveFields={...(overrideFields||editFields),
-      AppliesToAll:editFields.appliesToAll||false,
-      AppliesToEmails:editFields.appliesToAll?"":(editFields.appliesToEmails||[]).join(","),
-      BiWeeklyStartDate:editFields.biWeeklyStartDate||null,
-      DueMonthCycle:editFields.dueMonthCycle||null,
-      DueMonthOfQuarter:editFields.dueMonthOfQuarter||null,
-    };
-    onSaveRec&&onSaveRec(rec.id,saveFields);
-    setEditId(null);
-    fl("Recurring task updated — changes take effect at next generation");
-  }
-
-   function submitNewRec(f){
-    const nr=f||newRec;
-    if(!nr.desc?.trim()||!nr.category){fl("Description and Category are required");return;}
-    if(!nr.appliesToAll&&(!nr.appliesToEmails||!nr.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
-    onAddRec&&onAddRec({...nr,AppliesToAll:nr.appliesToAll||false,AppliesToEmails:nr.appliesToAll?"":(nr.appliesToEmails||[]).join(","),BiWeeklyStartDate:nr.biWeeklyStartDate||null,DueMonthCycle:nr.dueMonthCycle||null,DueMonthOfQuarter:nr.dueMonthOfQuarter||null});
-    setAddOpen(false);
-    setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
-
-  function submitAdhoc(){
-    if(!newAdhoc.desc.trim()||!newAdhoc.assignedTo||!newAdhoc.dueDate){fl("Assigned To, Description, and Due Date are required");return;}
-    onAssignAdhoc&&onAssignAdhoc(newAdhoc);
-    setAdhocOpen(false);
-    setNewAdhoc({desc:"",assignedTo:"",category:"Admin/Other",priority:"Normal",propertyId:"",dueDate:"",contextNotes:""});
-    fl("Ad-hoc task assigned successfully");
-  }
-
-  function startAdhocEdit(t){
-    setAdhocEditId(t.id);
-    setAdhocEditFields({desc:t.Description||t.Title||"",assignedTo:t.PMEmail||"",category:t.Category||"",priority:t.Priority||"Normal",propertyId:t.PropertyId||"",dueDate:t.DueDate?.slice(0,10)||"",contextNotes:t.ContextNotes||""});
-  }
-
-  function saveAdhocEdit(t){
-    onSaveRec&&onSaveRec(t.id,{...adhocEditFields,_type:"adhoc"});
-    setAdhocEditId(null);
-    fl("Ad-hoc task updated");
-  }
-
-  const inputS={...S.input,marginBottom:0};
-  const selS={...S.select,marginBottom:0};
-  const fgS={marginBottom:8};
-
-  function RField({label,children}){return<div style={fgS}><label style={S.label}>{label}</label>{children}</div>;}
-
-  function EditPanel({fields,onSave,onCancel}){
+  function EditPanel({fields,onSave,onCancel,allStaff,catList}){
     const[local,setLocal]=useState(()=>({...fields}));
     const set=k=>e=>setLocal(p=>({...p,[k]:typeof e==="object"&&e?.target?e.target.value:e}));
     const toggleEmail=(email)=>setLocal(p=>{
@@ -1164,6 +1094,77 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     </div>;
   }
 
+function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,fl}){
+  const[editId,setEditId]=useState(null);
+  const[editFields,setEditFields]=useState({});
+  const[addOpen,setAddOpen]=useState(false);
+  const[adhocOpen,setAdhocOpen]=useState(false);
+  const[newRec,setNewRec]=useState({desc:"",appliesTo:"All PMs",cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:2,dayOfMonth:1,dueDayOfMonth:5});
+  const[newAdhoc,setNewAdhoc]=useState({desc:"",assignedTo:"",category:"Admin/Other",priority:"Normal",propertyId:"",dueDate:"",contextNotes:""});
+  const[adhocEditId,setAdhocEditId]=useState(null);
+  const[adhocEditFields,setAdhocEditFields]=useState({});
+
+  const allProps=data?.properties||[];
+  // All active staff for assignment (everyone who might get tasks)
+  const allStaff=(data?.emps||[]).filter(e=>
+    e.EmployeeActive!==false &&
+    e.PMHubRole&&!["denied"].includes(e.PMHubRole)
+  ).sort((a,b)=>a.Name?.localeCompare(b.Name));
+  const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
+
+  function startEdit(rec){
+    setEditId(rec.id);
+    const existingEmails=rec.AppliesToEmails?rec.AppliesToEmails.split(',').map(e=>e.trim()).filter(Boolean):(rec.AppliesToEmail?[rec.AppliesToEmail]:[]);
+    setEditFields({desc:rec.Description||"",appliesToAll:rec.AppliesToAll||(!existingEmails.length&&!rec.AppliesToEmails),appliesToEmails:existingEmails,cadence:getChoiceVal(rec.Cadence)||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5,biWeeklyStartDate:rec.BiWeeklyStartDate?.slice(0,10)||today(),dueMonthCycle:rec.DueMonthCycle??1,dueMonthOfQuarter:rec.DueMonthOfQuarter??1});
+  }
+
+  function saveEdit(rec,overrideFields){
+    const saveFields={...(overrideFields||editFields),
+      AppliesToAll:editFields.appliesToAll||false,
+      AppliesToEmails:editFields.appliesToAll?"":(editFields.appliesToEmails||[]).join(","),
+      BiWeeklyStartDate:editFields.biWeeklyStartDate||null,
+      DueMonthCycle:editFields.dueMonthCycle||null,
+      DueMonthOfQuarter:editFields.dueMonthOfQuarter||null,
+    };
+    onSaveRec&&onSaveRec(rec.id,saveFields);
+    setEditId(null);
+    fl("Recurring task updated — changes take effect at next generation");
+  }
+
+   function submitNewRec(f){
+    const nr=f||newRec;
+    if(!nr.desc?.trim()||!nr.category){fl("Description and Category are required");return;}
+    if(!nr.appliesToAll&&(!nr.appliesToEmails||!nr.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
+    onAddRec&&onAddRec({...nr,AppliesToAll:nr.appliesToAll||false,AppliesToEmails:nr.appliesToAll?"":(nr.appliesToEmails||[]).join(","),BiWeeklyStartDate:nr.biWeeklyStartDate||null,DueMonthCycle:nr.dueMonthCycle||null,DueMonthOfQuarter:nr.dueMonthOfQuarter||null});
+    setAddOpen(false);
+    setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
+
+  function submitAdhoc(){
+    if(!newAdhoc.desc.trim()||!newAdhoc.assignedTo||!newAdhoc.dueDate){fl("Assigned To, Description, and Due Date are required");return;}
+    onAssignAdhoc&&onAssignAdhoc(newAdhoc);
+    setAdhocOpen(false);
+    setNewAdhoc({desc:"",assignedTo:"",category:"Admin/Other",priority:"Normal",propertyId:"",dueDate:"",contextNotes:""});
+    fl("Ad-hoc task assigned successfully");
+  }
+
+  function startAdhocEdit(t){
+    setAdhocEditId(t.id);
+    setAdhocEditFields({desc:t.Description||t.Title||"",assignedTo:t.PMEmail||"",category:t.Category||"",priority:t.Priority||"Normal",propertyId:t.PropertyId||"",dueDate:t.DueDate?.slice(0,10)||"",contextNotes:t.ContextNotes||""});
+  }
+
+  function saveAdhocEdit(t){
+    onSaveRec&&onSaveRec(t.id,{...adhocEditFields,_type:"adhoc"});
+    setAdhocEditId(null);
+    fl("Ad-hoc task updated");
+  }
+
+  const inputS={...S.input,marginBottom:0};
+  const selS={...S.select,marginBottom:0};
+  const fgS={marginBottom:8};
+
+  function RField({label,children}){return<div style={fgS}><label style={S.label}>{label}</label>{children}</div>;}
+
+
   // Group recurring defs by cadence+assignee
   const daily=recurringDefs.filter(r=>getCadence(r.Cadence)==="Daily");
   const biweeklyRec=recurringDefs.filter(r=>getCadence(r.Cadence)==="Bi-Weekly");
@@ -1197,7 +1198,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
               <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Delete this recurring task?"))onDeleteRec&&onDeleteRec(rec);}}>✕</button>
             </div>
           </div>
-          {isEditing&&<EditPanel fields={editFields} onSave={f=>{saveEdit(rec,f);}} onCancel={()=>setEditId(null)}/>}
+          {isEditing&&<EditPanel fields={editFields} allStaff={allStaff} catList={catList} onSave={f=>{saveEdit(rec,f);}} onCancel={()=>setEditId(null)}/>}
           {isEditing&&<div style={{display:"flex",gap:6,justifyContent:"flex-end",padding:"8px 0"}}>
             <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setEditId(null)}>Cancel</button>
             <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveEdit(rec)}>✓ Save Changes</button>
@@ -1222,7 +1223,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         <div style={{...S.row,marginBottom:8}}>
           <div style={{flex:1}}><label style={S.label}>Cadence *</label><select style={selS} value={newRec.cadence} onChange={e=>setNewRec(p=>({...p,cadence:e.target.value}))}>{["Daily","Bi-Weekly","Weekly","Bi-Monthly","Monthly","Quarterly","Ad-Hoc"].map(c=><option key={c}>{c}</option>)}</select></div>
         </div>
-        <EditPanel fields={newRec} onSave={f=>{setNewRec(f);submitNewRec(f);}} onCancel={()=>setAddOpen(false)}/>
+        <EditPanel fields={newRec} allStaff={allStaff} catList={catList} onSave={f=>{setNewRec(f);submitNewRec(f);}} onCancel={()=>setAddOpen(false)}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
           <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAddOpen(false)}>Cancel</button>
           <button style={{...S.btn(C.ok),...S.sm}} onClick={submitNewRec}>✓ Add Recurring Task</button>
