@@ -155,25 +155,29 @@ async function safeGet(token,name,url){try{const r=await gAll(token,url);console
 // ROLE DETECTION
 // ============================================================
 function detectRole(emp,adminEmails,msalEmail){
-  // Admin check first — by Employees email OR raw MSAL login email (handles domain mismatch)
   const empEmail=emp?.Email?.toLowerCase()||"";
   const loginEmail=(msalEmail||"").toLowerCase();
   const adminList=adminEmails.map(e=>e.toLowerCase());
   if(adminList.includes(empEmail)||adminList.includes(loginEmail)||
      adminList.some(a=>a.split("@")[0]===loginEmail.split("@")[0])){return"admin";}
-  // Then check PMHubRole override
-  if(emp?.PMHubRole)return emp.PMHubRole.toLowerCase();
+  if(emp?.PMHubRole){
+    const r=emp.PMHubRole.toLowerCase();
+    // Regional gets full admin access
+    if(r==="regional")return"admin";
+    return r;
+  }
   const t=emp?.JobTitle||"";
   if(t==="Virtual Assistant")return"denied";
   if(t==="Property Manager"||t==="Assistant Property Manager")return"pm-onsite";
   if(t==="AR Specialist")return"ar";
-  if(t==="Regional/Portfolio Manager")return"regional";
+  if(t==="Regional/Portfolio Manager")return"admin";
   if(t==="Owner/Operator")return"admin";
+  if(t==="Maintenance Supervisor"||t==="Maintenance")return"maintenance";
   return null;
 }
 
 // Helper — true for any PM variant
-function isAnyPM(role){return role==="pm"||role==="pm-onsite"||role==="pm-remote";}
+function isAnyPM(role){return role==="pm"||role==="pm-onsite"||role==="pm-remote"||role==="maintenance";}
 function isOnsitePM(role){return role==="pm"||role==="pm-onsite";}
 function isRemotePM(role){return role==="pm-remote";}
 
@@ -495,15 +499,17 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
   const[detailTask,setDetailTask]=useState(null);
   const[helpTask,setHelpTask]=useState(null);
 
-  const daily=tasks.filter(t=>getCadence(t.Cadence)==="Daily"&&t.Status!=="Missed"&&getChoiceVal(t.Status)!=="Not Applicable"&&(
+  const isActive=t=>t.Status!=="Missed"&&getChoiceVal(t.Status)!=="Not Applicable";
+  const withinDays=(t,d)=>t.ActivityDate&&(new Date()-new Date(t.ActivityDate))<d*864e5;
+  const completedWithin=(t,d)=>getChoiceVal(t.Status)!=="Completed"||(t.CompletedAt&&(new Date()-new Date(t.CompletedAt))<d*864e5);
+  const daily=tasks.filter(t=>getCadence(t.Cadence)==="Daily"&&isActive(t)&&(
     t.ActivityDate?.slice(0,10)===today()||getChoiceVal(t.Status)==="Completed"&&t.CompletedAt?.slice(0,10)===today()
   ));
-  const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&t.Status!=="Missed"&&getChoiceVal(t.Status)!=="Not Applicable"&&(
-    getChoiceVal(t.Status)!=="Completed"||(t.CompletedAt&&(new Date()-new Date(t.CompletedAt))<7*864e5)
-  )&&(t.ActivityDate&&(new Date()-new Date(t.ActivityDate))<7*864e5));
-  const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&t.Status!=="Missed"&&getChoiceVal(t.Status)!=="Not Applicable"&&(
-    getChoiceVal(t.Status)!=="Completed"||(t.CompletedAt&&(new Date()-new Date(t.CompletedAt))<31*864e5)
-  )&&(t.ActivityDate&&(new Date()-new Date(t.ActivityDate))<31*864e5));
+  const biweekly=tasks.filter(t=>getCadence(t.Cadence)==="Bi-Weekly"&&isActive(t)&&completedWithin(t,14)&&withinDays(t,14));
+  const weekly=tasks.filter(t=>getCadence(t.Cadence)==="Weekly"&&isActive(t)&&completedWithin(t,7)&&withinDays(t,7));
+  const bimonthly=tasks.filter(t=>getCadence(t.Cadence)==="Bi-Monthly"&&isActive(t)&&completedWithin(t,62)&&withinDays(t,62));
+  const monthly=tasks.filter(t=>getCadence(t.Cadence)==="Monthly"&&isActive(t)&&completedWithin(t,31)&&withinDays(t,31));
+  const quarterly=tasks.filter(t=>getCadence(t.Cadence)==="Quarterly"&&isActive(t)&&completedWithin(t,92)&&withinDays(t,92));
   const adhoc=tasks.filter(t=>getCadence(t.Cadence)==="Ad-Hoc"&&t.Status!=="Completed"&&t.Status!=="Missed");
   const completedToday=tasks.filter(t=>getChoiceVal(t.Status)==="Completed"&&t.CompletedAt?.slice(0,10)===today());
   const missed=tasks.filter(t=>getChoiceVal(t.Status)==="Missed");
@@ -534,8 +540,11 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
 
     {/* Checklist sections */}
     <ChecklistSection label="Daily" icon="📋" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail}/>
-    <ChecklistSection label="Weekly" icon="📅" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!weekly.filter(t=>t.Status!=="Completed").length}/>
-    <ChecklistSection label="Monthly" icon="🗓" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!monthly.filter(t=>t.Status!=="Completed").length}/>
+    {biweekly.length>0&&<ChecklistSection label="Bi-Weekly" icon="🔁" tasks={biweekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!biweekly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
+    <ChecklistSection label="Weekly" icon="📅" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!weekly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>
+    {bimonthly.length>0&&<ChecklistSection label="Bi-Monthly" icon="📆" tasks={bimonthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!bimonthly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
+    <ChecklistSection label="Monthly" icon="🗓" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!monthly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>
+    {quarterly.length>0&&<ChecklistSection label="Quarterly" icon="📊" tasks={quarterly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!quarterly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
 
     {adhoc.length>0&&<div style={S.card}>
       <div style={{...S.cardT,color:C.inf}}>📌 Ad-Hoc Tasks Assigned to You ({adhoc.length})</div>
@@ -1014,36 +1023,39 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
   const[adhocEditId,setAdhocEditId]=useState(null);
   const[adhocEditFields,setAdhocEditFields]=useState({});
 
-  const pms=data?.pms||[];
   const allProps=data?.properties||[];
-  // Build applies-to options: groups first, then individual PMs only (not AR/Regional)
-  const onsitePMs=pms.filter(p=>p.PMHubRole==="pm-onsite"||p.PMHubRole==="pm");
-  const remotePMs=pms.filter(p=>p.PMHubRole==="pm-remote");
-  const people=[
-    {label:"All PMs",val:"all-pm",role:"all-pm"},
-    {label:"All Onsite PMs",val:"pm-onsite",role:"pm-onsite"},
-    {label:"All Remote PMs",val:"pm-remote",role:"pm-remote"},
-    ...pms.map(p=>({label:p.Name,val:p.Email,role:p.PMHubRole||"pm"})),
-  ];
+  // All active staff for assignment (everyone who might get tasks)
+  const allStaff=(data?.employees||[]).filter(e=>
+    e.EmployeeActive!==false &&
+    e.PMHubRole&&!["denied"].includes(e.PMHubRole)
+  ).sort((a,b)=>a.Name?.localeCompare(b.Name));
   const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
 
   function startEdit(rec){
     setEditId(rec.id);
-    setEditFields({desc:rec.Description||"",appliesTo:rec.AppliesToEmail||rec.AppliesToRole||"all-pm",cadence:rec.Cadence||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5});
+    const existingEmails=rec.AppliesToEmails?rec.AppliesToEmails.split(',').map(e=>e.trim()).filter(Boolean):(rec.AppliesToEmail?[rec.AppliesToEmail]:[]);
+    setEditFields({desc:rec.Description||"",appliesToAll:rec.AppliesToAll||(!existingEmails.length&&!rec.AppliesToEmails),appliesToEmails:existingEmails,cadence:getChoiceVal(rec.Cadence)||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5,biWeeklyStartDate:rec.BiWeeklyStartDate?.slice(0,10)||today(),dueMonthCycle:rec.DueMonthCycle??1,dueMonthOfQuarter:rec.DueMonthOfQuarter??1});
   }
 
   function saveEdit(rec){
-    onSaveRec&&onSaveRec(rec.id,editFields);
+    const saveFields={...editFields,
+      AppliesToAll:editFields.appliesToAll||false,
+      AppliesToEmails:editFields.appliesToAll?"":(editFields.appliesToEmails||[]).join(","),
+      BiWeeklyStartDate:editFields.biWeeklyStartDate||null,
+      DueMonthCycle:editFields.dueMonthCycle||null,
+      DueMonthOfQuarter:editFields.dueMonthOfQuarter||null,
+    };
+    onSaveRec&&onSaveRec(rec.id,saveFields);
     setEditId(null);
     fl("Recurring task updated — changes take effect at next generation");
   }
 
   function submitNewRec(){
     if(!newRec.desc.trim()||!newRec.category){fl("Description and Category are required");return;}
-    onAddRec&&onAddRec(newRec);
+    if(!newRec.appliesToAll&&(!newRec.appliesToEmails||!newRec.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
+    onAddRec&&onAddRec({...newRec,AppliesToAll:newRec.appliesToAll||false,AppliesToEmails:newRec.appliesToAll?"":(newRec.appliesToEmails||[]).join(","),BiWeeklyStartDate:newRec.biWeeklyStartDate||null,DueMonthCycle:newRec.dueMonthCycle||null,DueMonthOfQuarter:newRec.dueMonthOfQuarter||null});
     setAddOpen(false);
-    setNewRec({desc:"",appliesTo:"All PMs",cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:2,dayOfMonth:1,dueDayOfMonth:5});
-    fl("Recurring task added — will generate on next cycle");
+    setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
   }
 
   function submitAdhoc(){
@@ -1071,23 +1083,75 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
   function RField({label,children}){return<div style={fgS}><label style={S.label}>{label}</label>{children}</div>;}
 
-  function EditPanel({fields,setFields,isWeekly,isMonthly}){
+  function EditPanel({fields,setFields}){
+    const cad=fields.cadence||"Daily";
+    const isWeekly=cad==="Weekly";
+    const isBiWeekly=cad==="Bi-Weekly";
+    const isBiMonthly=cad==="Bi-Monthly";
+    const isMonthly=cad==="Monthly";
+    const isQuarterly=cad==="Quarterly";
+    const needsDayOfWeek=isWeekly||isBiWeekly;
+    const needsDayOfMonth=isBiMonthly||isMonthly||isQuarterly;
+    const toggleEmail=(email)=>setFields(p=>{
+      const cur=p.appliesToEmails||[];
+      return{...p,appliesToEmails:cur.includes(email)?cur.filter(e=>e!==email):[...cur,email]};
+    });
     return<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:14,marginTop:8}}>
       <RField label="Task Description"><input style={inputS} value={fields.desc} onChange={e=>setFields(p=>({...p,desc:e.target.value}))}/></RField>
       <div style={{...S.row,marginBottom:8}}>
-        <div style={{flex:2}}><label style={S.label}>Applies To</label><select style={selS} value={fields.appliesTo} onChange={e=>setFields(p=>({...p,appliesTo:e.target.value}))}>{people.map(p=><option key={p.val} value={p.val}>{p.label}</option>)}</select></div>
+        <div style={{flex:1}}><label style={S.label}>Cadence</label>
+          <select style={selS} value={cad} onChange={e=>setFields(p=>({...p,cadence:e.target.value}))}>
+            {["Daily","Bi-Weekly","Weekly","Bi-Monthly","Monthly","Quarterly","Ad-Hoc"].map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
         <div style={{flex:1}}><label style={S.label}>Category</label><select style={selS} value={fields.category} onChange={e=>setFields(p=>({...p,category:e.target.value}))}><option value="">Select...</option>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
         <div style={{flex:1}}><label style={S.label}>Priority</label><select style={selS} value={fields.priority} onChange={e=>setFields(p=>({...p,priority:e.target.value}))}>{["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}</select></div>
       </div>
-      {!isWeekly&&!isMonthly&&<RField label="On-Time Cutoff"><select style={selS} value={fields.onTimeCutoff} onChange={e=>setFields(p=>({...p,onTimeCutoff:e.target.value}))}>{["15:00","16:00","17:00","18:00"].map(v=><option key={v} value={v}>{v}</option>)}</select></RField>}
-      {isWeekly&&<div style={{...S.row,marginBottom:8}}>
-        <div style={{flex:1}}><label style={S.label}>Generates On</label><select style={selS} value={fields.dayOfWeek} onChange={e=>setFields(p=>({...p,dayOfWeek:+e.target.value}))}>{days.map((d,i)=><option key={i} value={i}>{d}</option>)}</select></div>
-        <div style={{flex:1}}><label style={S.label}>Due By</label><select style={selS} value={fields.dueDayOfWeek} onChange={e=>setFields(p=>({...p,dueDayOfWeek:+e.target.value}))}>{days.map((d,i)=><option key={i} value={i}>{d}</option>)}</select></div>
+      {needsDayOfWeek&&<div style={{...S.row,marginBottom:8}}>
+        {isBiWeekly&&<div style={{flex:2}}><label style={S.label}>Start Date (first occurrence)</label><input type="date" style={selS} value={fields.biWeeklyStartDate||today()} onChange={e=>setFields(p=>({...p,biWeeklyStartDate:e.target.value}))}/></div>}
+        {isWeekly&&<div style={{flex:1}}><label style={S.label}>Day of Week</label><select style={selS} value={fields.dueDayOfWeek} onChange={e=>setFields(p=>({...p,dueDayOfWeek:+e.target.value}))}>{days.map((d,i)=><option key={i+1} value={i+1}>{d}</option>)}</select></div>}
       </div>}
-      {isMonthly&&<div style={{...S.row,marginBottom:8}}>
-        <div style={{flex:1}}><label style={S.label}>Generates (day)</label><select style={selS} value={fields.dayOfMonth} onChange={e=>setFields(p=>({...p,dayOfMonth:+e.target.value}))}>{[1,2,3,5,10,15,20,25].map(d=><option key={d} value={d}>{d}</option>)}</select></div>
-        <div style={{flex:1}}><label style={S.label}>Due By (day)</label><select style={selS} value={fields.dueDayOfMonth} onChange={e=>setFields(p=>({...p,dueDayOfMonth:+e.target.value}))}>{[1,3,5,7,10,15,20].map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+      {needsDayOfMonth&&<div style={{...S.row,marginBottom:8}}>
+        {(isBiMonthly)&&<div style={{flex:1}}><label style={S.label}>Cycle</label>
+          <select style={selS} value={fields.dueMonthCycle||1} onChange={e=>setFields(p=>({...p,dueMonthCycle:+e.target.value}))}>
+            <option value={1}>Cycle A — Jan/Mar/May/Jul/Sep/Nov</option>
+            <option value={2}>Cycle B — Feb/Apr/Jun/Aug/Oct/Dec</option>
+          </select>
+        </div>}
+        {isQuarterly&&<div style={{flex:1}}><label style={S.label}>Month of Quarter</label>
+          <select style={selS} value={fields.dueMonthOfQuarter||1} onChange={e=>setFields(p=>({...p,dueMonthOfQuarter:+e.target.value}))}>
+            <option value={1}>Month 1 — Jan/Apr/Jul/Oct</option>
+            <option value={2}>Month 2 — Feb/May/Aug/Nov</option>
+            <option value={3}>Month 3 — Mar/Jun/Sep/Dec</option>
+          </select>
+        </div>}
+        <div style={{flex:1}}><label style={S.label}>Day of Month</label>
+          <select style={selS} value={fields.dueDayOfMonth||1} onChange={e=>setFields(p=>({...p,dueDayOfMonth:+e.target.value}))}>
+            {[1,2,3,5,7,10,14,15,20,21,25,28].map(d=><option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
       </div>}
+      {/* Assign To — multi-select people picker */}
+      <div style={{marginBottom:8}}>
+        <label style={S.label}>Assign To</label>
+        <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,fontSize:13,cursor:"pointer",fontWeight:fields.appliesToAll?600:400,color:fields.appliesToAll?C.ok:C.t7}}>
+          <input type="checkbox" checked={!!fields.appliesToAll} onChange={e=>setFields(p=>({...p,appliesToAll:e.target.checked,appliesToEmails:[]}))}/>
+          Assign to Everyone
+        </label>
+        {!fields.appliesToAll&&<div style={{border:`1px solid ${C.b2}`,borderRadius:4,padding:"8px 10px",maxHeight:160,overflowY:"auto",background:C.white,display:"flex",flexWrap:"wrap",gap:6}}>
+          {allStaff.map(emp=>{
+            const checked=(fields.appliesToEmails||[]).includes(emp.Email?.toLowerCase()||emp.Email);
+            return<label key={emp.Email} style={{display:"flex",alignItems:"center",gap:5,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:99,background:checked?C.t1:C.b0,color:checked?C.t7:C.b4,border:`1px solid ${checked?C.t2:C.b1}`,fontWeight:checked?600:400}}>
+              <input type="checkbox" style={{display:"none"}} checked={checked} onChange={()=>toggleEmail(emp.Email?.toLowerCase()||emp.Email)}/>
+              {emp.Name}{checked?" ✓":""}
+            </label>;
+          })}
+          {!allStaff.length&&<div style={{fontSize:12,color:C.b4}}>No staff loaded</div>}
+        </div>}
+        {!fields.appliesToAll&&(fields.appliesToEmails||[]).length>0&&<div style={{fontSize:11,color:C.b4,marginTop:4}}>
+          {(fields.appliesToEmails||[]).length} person{(fields.appliesToEmails||[]).length!==1?"s":""} selected
+        </div>}
+      </div>
       <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}>— visible to recipient when they tap the task</span></>}>
         <textarea style={{...inputS,minHeight:70,resize:"vertical"}} value={fields.contextNotes} onChange={e=>setFields(p=>({...p,contextNotes:e.target.value}))} placeholder="Step-by-step instructions, AppFolio navigation, escalation rules, SOP links..."/>
       </RField>
@@ -1099,8 +1163,12 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
   // Group recurring defs by cadence+assignee
   const daily=recurringDefs.filter(r=>getCadence(r.Cadence)==="Daily");
+  const biweeklyRec=recurringDefs.filter(r=>getCadence(r.Cadence)==="Bi-Weekly");
   const weekly=recurringDefs.filter(r=>getCadence(r.Cadence)==="Weekly");
+  const bimonthlyRec=recurringDefs.filter(r=>getCadence(r.Cadence)==="Bi-Monthly");
   const monthly=recurringDefs.filter(r=>getCadence(r.Cadence)==="Monthly");
+  const quarterlyRec=recurringDefs.filter(r=>getCadence(r.Cadence)==="Quarterly");
+  const adhocRec=recurringDefs.filter(r=>getCadence(r.Cadence)==="Ad-Hoc");
 
   function RecGroup({label,items,isWeekly,isMonthly}){
     if(!items.length)return null;
@@ -1108,7 +1176,9 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
       <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",letterSpacing:".05em",margin:"14px 0 6px",paddingBottom:4,borderBottom:`1px solid ${C.t1}`}}>{label}</div>
       {items.map((rec,i)=>{
         const isEditing=editId===rec.id;
-        const sub=rec.Cadence==="Daily"?`${rec.AppliesToName||"All PMs"} · Daily · Cutoff: ${rec.OnTimeCutoff||"17:00"}`:rec.Cadence==="Weekly"?`${rec.AppliesToName||"All PMs"} · Weekly · Gen: ${days[rec.DayOfWeek??0]} · Due: ${days[rec.DueDayOfWeek??2]}`:`${rec.AppliesToName||"All PMs"} · Monthly · Gen ${rec.DayOfMonth??1}th · Due ${rec.DueDayOfMonth??5}th`;
+        const assignedLabel=rec.AppliesToAll?"Everyone":(rec.AppliesToEmails?(rec.AppliesToEmails.split(",").map(e=>{const s=allStaff.find(p=>p.Email?.toLowerCase()===e.trim().toLowerCase());return s?s.Name.split(" ")[0]:e;}).filter(Boolean).join(", ")||"?"):(rec.AppliesToEmail||"?"));
+        const cad=getCadence(rec.Cadence)||"Daily";
+        const sub=`${assignedLabel} · ${cad}`+(cad==="Weekly"?` · ${days[(rec.DueDayOfWeek??1)-1]||"Mon"}`:"")+(cad==="Bi-Weekly"?` · starts ${rec.BiWeeklyStartDate?.slice(0,10)||"?"}`:"")+(cad==="Bi-Monthly"?` · Cycle ${rec.DueMonthCycle===2?"B":"A"} · day ${rec.DueDayOfMonth||1}`:"")+((cad==="Monthly"||cad==="Quarterly")?` · day ${rec.DueDayOfMonth||1}`:"")+(cad==="Quarterly"?` · month ${rec.DueMonthOfQuarter||1} of qtr`:"");
         return<div key={rec.id||i} style={{borderBottom:`1px solid ${C.b1}`}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0"}}>
             <span style={{fontSize:14,marginTop:1,flexShrink:0}}>{catIcon[rec.Category]||"📋"}</span>
@@ -1124,7 +1194,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
               <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Delete this recurring task?"))onDeleteRec&&onDeleteRec(rec);}}>✕</button>
             </div>
           </div>
-          {isEditing&&<EditPanel fields={editFields} setFields={setEditFields} isWeekly={isWeekly} isMonthly={isMonthly}/>}
+          {isEditing&&<EditPanel fields={editFields} setFields={setEditFields}/>}
           {isEditing&&<div style={{display:"flex",gap:6,justifyContent:"flex-end",padding:"8px 0"}}>
             <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setEditId(null)}>Cancel</button>
             <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveEdit(rec)}>✓ Save Changes</button>
@@ -1147,20 +1217,22 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
       {addOpen&&<div style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:C.t7,marginBottom:8}}>New Recurring Task</div>
         <div style={{...S.row,marginBottom:8}}>
-          <div style={{flex:1}}><label style={S.label}>Cadence *</label><select style={selS} value={newRec.cadence} onChange={e=>setNewRec(p=>({...p,cadence:e.target.value}))}>{["Daily","Weekly","Monthly"].map(c=><option key={c}>{c}</option>)}</select></div>
+          <div style={{flex:1}}><label style={S.label}>Cadence *</label><select style={selS} value={newRec.cadence} onChange={e=>setNewRec(p=>({...p,cadence:e.target.value}))}>{["Daily","Bi-Weekly","Weekly","Bi-Monthly","Monthly","Quarterly","Ad-Hoc"].map(c=><option key={c}>{c}</option>)}</select></div>
         </div>
-        <EditPanel fields={newRec} setFields={setNewRec} isWeekly={newRec.cadence==="Weekly"} isMonthly={newRec.cadence==="Monthly"}/>
+        <EditPanel fields={newRec} setFields={setNewRec}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
           <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAddOpen(false)}>Cancel</button>
           <button style={{...S.btn(C.ok),...S.sm}} onClick={submitNewRec}>✓ Add Recurring Task</button>
         </div>
       </div>}
-      <RecGroup label="All PMs — Daily" items={daily.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)}/>
-      {pms.map(pm=><RecGroup key={pm.Email} label={`${pm.Name} — Daily`} items={daily.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getCadence(r.Cadence)==="Daily")}/>)}
-      <RecGroup label="All PMs — Weekly" items={weekly.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)} isWeekly/>
-      {pms.map(pm=><RecGroup key={pm.Email+"w"} label={`${pm.Name} — Weekly`} items={weekly.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase())} isWeekly/>)}
-      <RecGroup label="All PMs — Monthly" items={monthly.filter(r=>r.AppliesToName==="All PMs"||!r.AppliesToEmail)} isMonthly/>
-      {pms.map(pm=><RecGroup key={pm.Email+"m"} label={`${pm.Name} — Monthly`} items={monthly.filter(r=>r.AppliesToEmail?.toLowerCase()===pm.Email?.toLowerCase())} isMonthly/>)}
+      {/* Group by cadence */}
+      <RecGroup label="Daily" items={daily}/>
+      <RecGroup label="Bi-Weekly" items={biweeklyRec}/>
+      <RecGroup label="Weekly" items={weekly}/>
+      <RecGroup label="Bi-Monthly" items={bimonthlyRec}/>
+      <RecGroup label="Monthly" items={monthly}/>
+      <RecGroup label="Quarterly" items={quarterlyRec}/>
+      <RecGroup label="Ad-Hoc / One-Off" items={adhocRec}/>
     </div>
 
     {/* Assign Ad-Hoc Task */}
@@ -1177,10 +1249,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
           <div style={{flex:2}}><label style={S.label}>Assign To *</label>
             <select style={selS} value={newAdhoc.assignedTo} onChange={e=>setNewAdhoc(p=>({...p,assignedTo:e.target.value}))}>
               <option value="">Select person...</option>
-              <option value="all">All PMs</option>
-              {pms.map(pm=><option key={pm.Email} value={pm.Email}>{pm.Name} (PM)</option>)}
-              <option value="leslie">Leslie (AR Specialist)</option>
-              <option value="cara">Cara Munson (Regional)</option>
+              {allStaff.map(emp=><option key={emp.Email} value={emp.Email}>{emp.Name}{emp.PMHubRole?` (${emp.PMHubRole})`:""}</option>)}
             </select>
           </div>
           <div style={{flex:2}}><label style={S.label}>Category *</label><select style={selS} value={newAdhoc.category} onChange={e=>setNewAdhoc(p=>({...p,category:e.target.value}))}>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
@@ -1276,39 +1345,89 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
   const toCreate=[];
   const now=new Date();
   const todayStr=today();
-  const dayOfWeek=(now.getDay()+6)%7; // 0=Mon ... 4=Fri
-  const dayOfMonth=now.getDate();
+  const dow=(now.getDay()+6)%7; // 0=Mon...6=Sun
+  const dom=now.getDate();
+  const monthNum=now.getMonth()+1; // 1-12
+
+  // Week start (Monday)
+  const weekStart=new Date(now);weekStart.setDate(now.getDate()-dow);weekStart.setHours(0,0,0,0);
 
   for(const def of recurringDefs){
     if(def.IsActive===false)continue;
-    // Determine if this def applies to this user
-    const appliesToEmail=def.AppliesToEmail?.toLowerCase();
-    const appliesToRole=def.AppliesToRole?.toLowerCase();
-    const isForMe=!appliesToEmail||appliesToEmail===myEmail?.toLowerCase()||appliesToRole==="pm";
+    const cad=getChoiceVal(def.Cadence)||def.Cadence||"Daily";
 
+    // Person-based assignment check
+    const appliesToAll=def.AppliesToAll===true||def.AppliesToAll==="true"||def.AppliesToAll===1;
+    const appliesToEmails=(def.AppliesToEmails||"").split(",").map(e=>e.trim().toLowerCase()).filter(Boolean);
+    const legacyEmail=(def.AppliesToEmail||"").toLowerCase();
+    // AppliesToAll = only actual PMs, not AR/Regional/Admin/Maintenance
+    // Those roles get tasks via explicit email assignment only
+    const pmRoles=["pm","pm-onsite","pm-remote"];
+    const myRole=myEmp?.PMHubRole?.toLowerCase()||"";
+    const isForMe=(appliesToAll&&pmRoles.includes(myRole))||
+      appliesToEmails.includes(myEmail?.toLowerCase())||
+      (!appliesToAll&&appliesToEmails.length===0&&legacyEmail===myEmail?.toLowerCase());
     if(!isForMe)continue;
 
-    const pk=periodKey(def.Cadence,def.DayOfWeek,def.DayOfMonth);
-    // Check if this period's task already exists
-    const exists=existingActivity.some(a=>a.RecurringTaskId===String(def.id||def.Id)&&a.PeriodKey===pk&&a.PMEmail?.toLowerCase()===myEmail?.toLowerCase());
+    // Cadence day check
+    let shouldGenerate=false;
+    switch(cad){
+      case"Daily":shouldGenerate=true;break;
+      case"Bi-Weekly":{
+        const startRaw=def.BiWeeklyStartDate;
+        if(!startRaw){shouldGenerate=false;break;}
+        const start=new Date(startRaw);start.setHours(0,0,0,0);
+        const diff=Math.floor((now-start)/(864e5));
+        shouldGenerate=diff>=0&&diff%14===0;
+        break;
+      }
+      case"Weekly":{
+        const scheduledDay=(def.DueDayOfWeek??1)-1; // stored as 1=Mon
+        const taskDueThisWeek=new Date(weekStart);taskDueThisWeek.setDate(weekStart.getDate()+scheduledDay);
+        shouldGenerate=taskDueThisWeek<=now;
+        break;
+      }
+      case"Bi-Monthly":{
+        const cycle=def.DueMonthCycle??1;
+        const monthParity=monthNum%2; // odd=1,even=0
+        const cycleMatch=(cycle===1&&monthParity===1)||(cycle===2&&monthParity===0);
+        shouldGenerate=cycleMatch&&dom>=(def.DueDayOfMonth??1);
+        break;
+      }
+      case"Monthly":shouldGenerate=dom>=(def.DueDayOfMonth??1);break;
+      case"Quarterly":{
+        const monthOfQ=((monthNum-1)%3)+1;
+        shouldGenerate=monthOfQ===(def.DueMonthOfQuarter??1)&&dom>=(def.DueDayOfMonth??1);
+        break;
+      }
+      default:shouldGenerate=false;
+    }
+    if(!shouldGenerate)continue;
+
+    // Dedup check — period key
+    const pk=periodKey(cad,def.DueDayOfWeek,def.DueDayOfMonth);
+    const defId=String(def.id||def.Id||"");
+    const myLower=myEmail?.toLowerCase()||"";
+    const exists=existingActivity.some(a=>
+      String(a.RecurringTaskId)===defId&&
+      a.PMEmail?.toLowerCase()===myLower&&
+      (cad==="Daily"?a.ActivityDate?.slice(0,10)===todayStr:
+       cad==="Weekly"||cad==="Bi-Weekly"?new Date(a.ActivityDate)>=weekStart:
+       a.PeriodKey===pk)
+    );
     if(exists)continue;
 
-    // For weekly: only generate on the specified day
-    if(def.Cadence==="Weekly"&&(def.DayOfWeek??0)!==dayOfWeek)continue;
-    // For monthly: only generate on the specified day
-    if(def.Cadence==="Monthly"&&(def.DayOfMonth??1)!==dayOfMonth)continue;
-
-    const dueDate=computeDueDate(def);
+    const dueDate=computeDueDate(def,cad,now,dow);
     toCreate.push({
-      Title:`Task-${def.Description?.slice(0,30)||"Checklist"}`,
+      Title:def.Description?.slice(0,255)||"Checklist Task",
       ActivityType:"Checklist",
-      RecurringTaskId:String(def.id||def.Id||""),
+      RecurringTaskId:defId,
       PMEmail:myEmail,
       PMName:myEmp?.Name||myEmail,
       Category:def.Category||"Admin/Other",
-      Cadence:def.Cadence,
+      Cadence:cad,
       Status:"Queued",
-      Priority:def.Priority||"Normal",
+      Priority:getChoiceVal(def.Priority)||def.Priority||"Normal",
       Description:def.Description||"",
       ContextNotes:def.ContextNotes||"",
       OnTimeCutoff:def.OnTimeCutoff||"17:00",
@@ -1334,24 +1453,19 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
   return created;
 }
 
-function computeDueDate(def){
-  const now=new Date();
-  if(def.Cadence==="Daily"){
+function computeDueDate(def,cad,now,dow){
+  if(cad==="Daily"){
     const[hh,mm]=(def.OnTimeCutoff||"17:00").split(":").map(Number);
-    const d=new Date(now);d.setHours(hh,mm,0,0);
-    return d.toISOString();
+    const d=new Date(now);d.setHours(hh,mm,0,0);return d.toISOString();
   }
-  if(def.Cadence==="Weekly"){
-    const dueDay=def.DueDayOfWeek??2;
-    const curDay=(now.getDay()+6)%7;
-    const diff=(dueDay-curDay+7)%7;
-    const d=new Date(now);d.setDate(d.getDate()+diff);d.setHours(17,0,0,0);
-    return d.toISOString();
+  if(cad==="Weekly"||cad==="Bi-Weekly"){
+    const dueDay=(def.DueDayOfWeek??1)-1; // 0=Mon
+    const diff=(dueDay-dow+7)%7;
+    const d=new Date(now);d.setDate(d.getDate()+diff);d.setHours(17,0,0,0);return d.toISOString();
   }
-  if(def.Cadence==="Monthly"){
+  if(cad==="Monthly"||cad==="Bi-Monthly"||cad==="Quarterly"){
     const dueDay=def.DueDayOfMonth??5;
-    const d=new Date(now.getFullYear(),now.getMonth(),dueDay,17,0,0,0);
-    return d.toISOString();
+    const d=new Date(now.getFullYear(),now.getMonth(),dueDay,17,0,0,0);return d.toISOString();
   }
   return now.toISOString();
 }
@@ -1622,6 +1736,28 @@ function App(){
     }catch(e){fl("Error saving session: "+e.message);}
   }
 
+  async function updateSession(id,fields){
+    try{
+      const tk=await getToken();
+      await gPatch(tk,iUrl(CONFIG.listOneOnOne,id),{
+        Wins:fields.Wins||"",AreasToImprove:fields.AreasToImprove||"",
+        ActionItems:fields.ActionItems||"",RegionalNotes:fields.RegionalNotes||"",
+        Status:fields.Status||"Draft",
+      });
+      await loadAll();fl("Session updated!");
+    }catch(e){fl("Error updating session: "+e.message);}
+  }
+
+  async function deleteSession(id){
+    if(!window.confirm("Delete this draft session? This cannot be undone."))return;
+    try{
+      const tk=await getToken();
+      // Mark as deleted rather than hard delete to preserve audit trail
+      await gPatch(tk,iUrl(CONFIG.listOneOnOne,id),{Status:"Deleted",Title:"[DELETED]"});
+      await loadAll();fl("Draft deleted");
+    }catch(e){fl("Error deleting session: "+e.message);}
+  }
+
   async function saveRecurring(id,fields){
     try{
       const tk=await getToken();
@@ -1631,47 +1767,47 @@ function App(){
       if(fields.category!==undefined)patch.Category=fields.category;
       if(fields.priority!==undefined)patch.Priority=fields.priority;
       if(fields.onTimeCutoff!==undefined)patch.OnTimeCutoff=fields.onTimeCutoff;
-      if(fields.dayOfWeek!==undefined)patch.DayOfWeek=fields.dayOfWeek;
       if(fields.dueDayOfWeek!==undefined)patch.DueDayOfWeek=fields.dueDayOfWeek;
-      if(fields.dayOfMonth!==undefined)patch.DayOfMonth=fields.dayOfMonth;
       if(fields.dueDayOfMonth!==undefined)patch.DueDayOfMonth=fields.dueDayOfMonth;
-      if(fields.appliesTo){
-        const sel=fields.appliesTo;
-        if(sel==="all-pm"||sel==="All PMs"){
-          patch.AppliesToEmail="";patch.AppliesToName="All PMs";patch.AppliesToRole="all-pm";
-        } else if(sel==="pm-onsite"||sel==="All Onsite PMs"){
-          patch.AppliesToEmail="";patch.AppliesToName="All Onsite PMs";patch.AppliesToRole="pm-onsite";
-        } else if(sel==="pm-remote"||sel==="All Remote PMs"){
-          patch.AppliesToEmail="";patch.AppliesToName="All Remote PMs";patch.AppliesToRole="pm-remote";
-        } else {
-          const pm=data.pms?.find(p=>p.Email===sel||p.Name===sel);
-          if(pm){patch.AppliesToEmail=pm.Email;patch.AppliesToName=pm.Name;patch.AppliesToRole=pm.PMHubRole||"pm";}
-          else{patch.AppliesToEmail="";patch.AppliesToName=sel;patch.AppliesToRole="pm";}
-        }
-      }
+      if(fields.desc!==undefined)patch.Description=fields.desc;
+      if(fields.cadence!==undefined)patch.Cadence=fields.cadence;
+      // New person-based assignment fields
+      if(fields.AppliesToAll!==undefined)patch.AppliesToAll=fields.AppliesToAll;
+      if(fields.AppliesToEmails!==undefined)patch.AppliesToEmails=fields.AppliesToEmails;
+      // New cadence fields
+      if(fields.BiWeeklyStartDate!==undefined)patch.BiWeeklyStartDate=fields.BiWeeklyStartDate;
+      if(fields.DueMonthCycle!==undefined)patch.DueMonthCycle=fields.DueMonthCycle;
+      if(fields.DueMonthOfQuarter!==undefined)patch.DueMonthOfQuarter=fields.DueMonthOfQuarter;
       await gPatch(tk,iUrl(CONFIG.listRecurring,id),patch);
-      await loadAll();
+      await loadAll();fl("Saved!");
     }catch(e){fl("Error saving: "+e.message);}
   }
-
   async function addRecurring(fields){
     try{
       const tk=await getToken();
-      const myEmail=(myEmp?.Email||acct.username).toLowerCase();
-      const pm=data.pms?.find(p=>p.Name===fields.appliesTo||fields.appliesTo?.startsWith(p.Name));
-      const appSel=fields.appliesTo;
-      let appEmail="",appName="All PMs",appRole="all-pm";
-      if(appSel==="pm-onsite"||appSel==="All Onsite PMs"){appName="All Onsite PMs";appRole="pm-onsite";}
-      else if(appSel==="pm-remote"||appSel==="All Remote PMs"){appName="All Remote PMs";appRole="pm-remote";}
-      else if(appSel&&appSel!=="all-pm"&&appSel!=="All PMs"){
-        const selPM=data.pms?.find(p=>p.Email===appSel||p.Name===appSel);
-        if(selPM){appEmail=selPM.Email;appName=selPM.Name;appRole=selPM.PMHubRole||"pm";}
-      }
-      await gPost(tk,lUrl(CONFIG.listRecurring),{Title:`RT-${uid()}`,Description:fields.desc,AppliesToEmail:appEmail,AppliesToName:appName,AppliesToRole:appRole,Category:fields.category,Cadence:fields.cadence,Priority:fields.priority||"Normal",ContextNotes:fields.contextNotes||"",AdminNotes:fields.adminNotes||"",OnTimeCutoff:fields.onTimeCutoff||"17:00",DayOfWeek:fields.dayOfWeek??0,DueDayOfWeek:fields.dueDayOfWeek??2,DayOfMonth:fields.dayOfMonth??1,DueDayOfMonth:fields.dueDayOfMonth??5,IsActive:true,CreatedByEmail:myEmail});
-      await loadAll();
+      const me=(myEmp?.Email||acct.username).toLowerCase();
+      await gPost(tk,lUrl(CONFIG.listRecurring),{
+        Title:`RT-${uid()}`,
+        Description:fields.desc,
+        AppliesToAll:fields.AppliesToAll||false,
+        AppliesToEmails:fields.AppliesToEmails||"",
+        Category:fields.category,
+        Cadence:fields.cadence,
+        Priority:fields.priority||"Normal",
+        ContextNotes:fields.contextNotes||"",
+        AdminNotes:fields.adminNotes||"",
+        OnTimeCutoff:fields.onTimeCutoff||"17:00",
+        DueDayOfWeek:fields.dueDayOfWeek??1,
+        DueDayOfMonth:fields.dueDayOfMonth??1,
+        BiWeeklyStartDate:fields.BiWeeklyStartDate||null,
+        DueMonthCycle:fields.DueMonthCycle||null,
+        DueMonthOfQuarter:fields.DueMonthOfQuarter||null,
+        IsActive:true,
+        CreatedByEmail:me,
+      });
+      await loadAll();fl("Recurring task added!");
     }catch(e){fl("Error adding task: "+e.message);}
   }
-
   async function toggleRecurring(rec){
     try{const tk=await getToken();await gPatch(tk,iUrl(CONFIG.listRecurring,rec.id),{IsActive:!(rec.IsActive!==false)});await loadAll();}
     catch(e){fl("Error: "+e.message);}
@@ -1744,7 +1880,8 @@ function App(){
   const TABS=useMemo(()=>{
     if(!role)return[];
     const t=[];
-    if(isAnyPM(role)||role==="admin"){t.push({k:"checklist",l:"My Checklist"});}
+    // Every role gets My Checklist showing their own tasks
+    t.push({k:"checklist",l:"My Checklist"});
     if(role==="ar"){t.push({k:"artasks",l:"My Tasks"});}
     t.push({k:"active",l:"Active"});
     t.push({k:"helpqueue",l:`Help Queue${(data?.helpQueue?.filter(q=>q.Status==="Open").length||0)>0?" ("+data.helpQueue.filter(q=>q.Status==="Open").length+")":""}`});
@@ -1781,7 +1918,7 @@ function App(){
   const myTasks=!myEmail?([]): (data?.activity||[]).filter(a=>{
     if(a.PMEmail?.toLowerCase()!==myEmail)return false;
     const cad=getCadence(a.Cadence);
-    const hasCadence=cad==="Daily"||cad==="Weekly"||cad==="Monthly"||cad==="Ad-Hoc";
+    const hasCadence=cad==="Daily"||cad==="Weekly"||cad==="Bi-Weekly"||cad==="Bi-Monthly"||cad==="Monthly"||cad==="Quarterly"||cad==="Ad-Hoc";
     const isRecurring=!!a.RecurringTaskId;
     const isAdhoc=a.ActivityType==="Ad-Hoc"||a.Source==="Assigned";
     return hasCadence||isRecurring||isAdhoc;
@@ -1830,7 +1967,7 @@ function App(){
     {tab==="vatasks"&&<VATasksView data={data} reviews={data?.reviews||[]} allResponses={data?.allResponses||[]} myEmail={myEmail} myEmp={myEmp} role={role} onReplyReview={replyToReview} onResolveReview={resolveReview} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={null} onComplete={completeTask} onNA={markNA} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} onToggleAbsence={toggleAbsence} fl={fl}/>}
-    {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} fl={fl}/>}
+    {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} onUpdateSession={updateSession} onDeleteSession={deleteSession} fl={fl}/>}
     {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} fl={fl}/>}
   </div>;
 }
@@ -1838,13 +1975,18 @@ function App(){
 // ============================================================
 // ONE-ON-ONE VIEW
 // ============================================================
-function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,fl}){
+function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSession,onDeleteSession,fl}){
   const[selPM,setSelPM]=useState("");
   const[showNew,setShowNew]=useState(false);
   const[wins,setWins]=useState("");
   const[improve,setImprove]=useState("");
   const[actions,setActions]=useState("");
   const[notes,setNotes]=useState("");
+  const[editingSessionId,setEditingSessionId]=useState(null);
+  const[editWins,setEditWins]=useState("");
+  const[editImprove,setEditImprove]=useState("");
+  const[editActions,setEditActions]=useState("");
+  const[editNotes,setEditNotes]=useState("");
   const[addTaskOpen,setAddTaskOpen]=useState(false);
   const[newTaskDesc,setNewTaskDesc]=useState("");
   const[newTaskCat,setNewTaskCat]=useState("Admin/Other");
@@ -1857,7 +1999,7 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,fl}){
   const isRegional=role==="regional"||role==="admin";
   const isPM=isAnyPM(role)||role==="admin";
   const pms=data?.pms||[];
-  const sessions=(data?.oneOnOneSessions||[]).sort((a,b)=>(b.SessionDate||"").localeCompare(a.SessionDate||""));
+  const sessions=(data?.oneOnOneSessions||[]).filter(s=>s.Status!=="Deleted").sort((a,b)=>(b.SessionDate||"").localeCompare(a.SessionDate||""));
 
   // For PM view — only their sessions
   const mySessions=isPM&&!isRegional?sessions.filter(s=>s.PMEmail?.toLowerCase()===myEmail):sessions;
@@ -2021,8 +2163,16 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,fl}){
                 {s.TasksAddedCount>0&&<span style={{color:C.g6}}>+{s.TasksAddedCount} tasks added</span>}
               </div>
             </div>
-            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}} onClick={e=>e.stopPropagation()}>
               <Badge type={s.Status==="Acknowledged"?"success":s.Status==="Shared with PM"?"info":"neutral"}>{s.Status||"Draft"}</Badge>
+              {(s.Status==="Draft"||!s.Status)&&isRegional&&<>
+                <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>{
+                  setEditingSessionId(editingSessionId===s.id?null:s.id);
+                  setEditWins(s.Wins||"");setEditImprove(s.AreasToImprove||"");
+                  setEditActions(s.ActionItems||"");setEditNotes(s.RegionalNotes||"");
+                }}>✎ Edit</button>
+                <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>onDeleteSession&&onDeleteSession(s.id)}>✕</button>
+              </>}
               <span style={{fontSize:11,color:C.b4}}>{isExpanded?"▲":"▼"}</span>
             </div>
           </div>
@@ -2049,6 +2199,25 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,fl}){
             </div>}
 
             {/* PM response */}
+            {/* Inline edit for drafts */}
+            {editingSessionId===s.id&&(s.Status==="Draft"||!s.Status)&&isRegional&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.b1}`}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.t7,marginBottom:10}}>✎ Edit Draft Session</div>
+              <div style={{marginBottom:8}}><label style={S.label}>Wins</label><textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={editWins} onChange={e=>setEditWins(e.target.value)}/></div>
+              <div style={{marginBottom:8}}><label style={S.label}>Areas to Improve</label><textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={editImprove} onChange={e=>setEditImprove(e.target.value)}/></div>
+              <div style={{marginBottom:8}}><label style={S.label}>Action Items</label><textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={editActions} onChange={e=>setEditActions(e.target.value)}/></div>
+              <div style={{marginBottom:10}}><label style={S.label}>Regional Notes (private)</label><textarea style={{...S.input,minHeight:50,resize:"vertical"}} value={editNotes} onChange={e=>setEditNotes(e.target.value)}/></div>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setEditingSessionId(null)}>Cancel</button>
+                <button style={{...S.btn(C.t7),...S.sm}} onClick={()=>{
+                  onUpdateSession&&onUpdateSession(s.id,{Wins:editWins,AreasToImprove:editImprove,ActionItems:editActions,RegionalNotes:editNotes,Status:"Draft"});
+                  setEditingSessionId(null);
+                }}>💾 Save Draft</button>
+                <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>{
+                  onUpdateSession&&onUpdateSession(s.id,{Wins:editWins,AreasToImprove:editImprove,ActionItems:editActions,RegionalNotes:editNotes,Status:"Shared with PM"});
+                  setEditingSessionId(null);
+                }}>📤 Save & Share</button>
+              </div>
+            </div>}
             {s.Status==="Shared with PM"&&!isPM&&<div style={{fontSize:11,color:C.b4,fontStyle:"italic",marginTop:8}}>Waiting for PM to acknowledge this session.</div>}
             {s.Status==="Shared with PM"&&isPM&&s.PMEmail?.toLowerCase()===myEmail&&<div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.b1}`}}>
               <label style={S.label}>Your Response (optional)</label>
