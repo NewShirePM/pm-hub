@@ -1013,87 +1013,9 @@ function HistoryView({allTasks,pms,role,dfFrom,dfTo,setDfFrom,setDfTo}){
 // ============================================================
 // ADMIN TAB
 // ============================================================
-  function EditPanel({fields,onSave,onCancel,allStaff,catList}){
-    const[local,setLocal]=useState(()=>({...fields}));
-    const set=k=>e=>setLocal(p=>({...p,[k]:typeof e==="object"&&e?.target?e.target.value:e}));
-    const toggleEmail=(email)=>setLocal(p=>{
-      const cur=p.appliesToEmails||[];
-      return{...p,appliesToEmails:cur.includes(email)?cur.filter(e=>e!==email):[...cur,email]};
-    });
-    const cad=local.cadence||"Daily";
-    const isWeekly=cad==="Weekly";
-    const isBiWeekly=cad==="Bi-Weekly";
-    const isBiMonthly=cad==="Bi-Monthly";
-    const isMonthly=cad==="Monthly";
-    const isQuarterly=cad==="Quarterly";
-    const needsDayOfWeek=isWeekly||isBiWeekly;
-    const needsDayOfMonth=isBiMonthly||isMonthly||isQuarterly;
-    return<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:14,marginTop:8}}>
-      <RField label="Task Description"><input style={inputS} value={local.desc} onChange={set("desc")}/></RField>
-      <div style={{...S.row,marginBottom:8}}>
-        <div style={{flex:1}}><label style={S.label}>Cadence</label>
-          <select style={selS} value={cad} onChange={set("cadence")}>
-            {["Daily","Bi-Weekly","Weekly","Bi-Monthly","Monthly","Quarterly","Ad-Hoc"].map(c=><option key={c}>{c}</option>)}
-          </select>
-        </div>
-        <div style={{flex:1}}><label style={S.label}>Category</label><select style={selS} value={local.category} onChange={set("category")}><option value="">Select...</option>{catList.map(c=><option key={c}>{c}</option>)}</select></div>
-        <div style={{flex:1}}><label style={S.label}>Priority</label><select style={selS} value={local.priority} onChange={set("priority")}>{["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}</select></div>
-      </div>
-      {needsDayOfWeek&&<div style={{...S.row,marginBottom:8}}>
-        {isBiWeekly&&<div style={{flex:2}}><label style={S.label}>Start Date (first occurrence)</label><input type="date" style={selS} value={local.biWeeklyStartDate||today()} onChange={set("biWeeklyStartDate")}/></div>}
-        {isWeekly&&<div style={{flex:1}}><label style={S.label}>Day of Week</label><select style={selS} value={local.dueDayOfWeek} onChange={e=>setLocal(p=>({...p,dueDayOfWeek:+e.target.value}))}>{days.map((d,i)=><option key={i+1} value={i+1}>{d}</option>)}</select></div>}
-      </div>}
-      {needsDayOfMonth&&<div style={{...S.row,marginBottom:8}}>
-        {isBiMonthly&&<div style={{flex:1}}><label style={S.label}>Cycle</label>
-          <select style={selS} value={local.dueMonthCycle||1} onChange={e=>setLocal(p=>({...p,dueMonthCycle:+e.target.value}))}>
-            <option value={1}>Cycle A — Jan/Mar/May/Jul/Sep/Nov</option>
-            <option value={2}>Cycle B — Feb/Apr/Jun/Aug/Oct/Dec</option>
-          </select>
-        </div>}
-        {isQuarterly&&<div style={{flex:1}}><label style={S.label}>Month of Quarter</label>
-          <select style={selS} value={local.dueMonthOfQuarter||1} onChange={e=>setLocal(p=>({...p,dueMonthOfQuarter:+e.target.value}))}>
-            <option value={1}>Month 1 — Jan/Apr/Jul/Oct</option>
-            <option value={2}>Month 2 — Feb/May/Aug/Nov</option>
-            <option value={3}>Month 3 — Mar/Jun/Sep/Dec</option>
-          </select>
-        </div>}
-        <div style={{flex:1}}><label style={S.label}>Day of Month</label>
-          <select style={selS} value={local.dueDayOfMonth||1} onChange={e=>setLocal(p=>({...p,dueDayOfMonth:+e.target.value}))}>
-            {[1,2,3,5,7,10,14,15,20,21,25,28].map(d=><option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-      </div>}
-      <div style={{marginBottom:8}}>
-        <label style={S.label}>Assign To</label>
-        <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,fontSize:13,cursor:"pointer",fontWeight:local.appliesToAll?600:400,color:local.appliesToAll?C.ok:C.t7}}>
-          <input type="checkbox" checked={!!local.appliesToAll} onChange={e=>setLocal(p=>({...p,appliesToAll:e.target.checked,appliesToEmails:[]}))}/>
-          Assign to Everyone (all PMs)
-        </label>
-        {!local.appliesToAll&&<div style={{border:`1px solid ${C.b2}`,borderRadius:4,padding:"8px 10px",maxHeight:160,overflowY:"auto",background:C.white,display:"flex",flexWrap:"wrap",gap:6}}>
-          {allStaff.map(emp=>{
-            const checked=(local.appliesToEmails||[]).includes(emp.Email?.toLowerCase()||emp.Email);
-            return<label key={emp.Email} style={{display:"flex",alignItems:"center",gap:5,fontSize:12,cursor:"pointer",padding:"3px 8px",borderRadius:99,background:checked?C.t1:C.b0,color:checked?C.t7:C.b4,border:`1px solid ${checked?C.t2:C.b1}`,fontWeight:checked?600:400}}>
-              <input type="checkbox" style={{display:"none"}} checked={checked} onChange={()=>toggleEmail(emp.Email?.toLowerCase()||emp.Email)}/>
-              {emp.Name}{checked?" ✓":""}
-            </label>;
-          })}
-          {!allStaff.length&&<div style={{fontSize:12,color:C.b4}}>No staff loaded</div>}
-        </div>}
-        {!local.appliesToAll&&(local.appliesToEmails||[]).length>0&&<div style={{fontSize:11,color:C.b4,marginTop:4}}>{(local.appliesToEmails||[]).length} selected</div>}
-      </div>
-      <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}>— visible to recipient</span></>}>
-        <textarea style={{...inputS,minHeight:70,resize:"vertical"}} value={local.contextNotes} onChange={set("contextNotes")} placeholder="Step-by-step instructions, AppFolio navigation, escalation rules..."/>
-      </RField>
-      <RField label="Admin Notes (not shown to recipient)">
-        <input style={inputS} value={local.adminNotes||""} onChange={set("adminNotes")} placeholder="Why this task exists, compliance notes, etc."/>
-      </RField>
-      <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"flex-end"}}>
-        <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={onCancel}>Cancel</button>
-        <button style={{...S.btn(C.t7),...S.sm}} onClick={()=>onSave(local)}>💾 Save</button>
-      </div>
-    </div>;
-  }
 
+
+// ============================================================
 function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,fl}){
   const[editId,setEditId]=useState(null);
   const[editFields,setEditFields]=useState({});
@@ -1118,8 +1040,8 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     setEditFields({desc:rec.Description||"",appliesToAll:rec.AppliesToAll||(!existingEmails.length&&!rec.AppliesToEmails),appliesToEmails:existingEmails,cadence:getChoiceVal(rec.Cadence)||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5,biWeeklyStartDate:rec.BiWeeklyStartDate?.slice(0,10)||today(),dueMonthCycle:rec.DueMonthCycle??1,dueMonthOfQuarter:rec.DueMonthOfQuarter??1});
   }
 
-  function saveEdit(rec,overrideFields){
-    const saveFields={...(overrideFields||editFields),
+  function saveEdit(rec){
+    const saveFields={...editFields,
       AppliesToAll:editFields.appliesToAll||false,
       AppliesToEmails:editFields.appliesToAll?"":(editFields.appliesToEmails||[]).join(","),
       BiWeeklyStartDate:editFields.biWeeklyStartDate||null,
@@ -1131,11 +1053,10 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     fl("Recurring task updated — changes take effect at next generation");
   }
 
-   function submitNewRec(f){
-    const nr=f||newRec;
-    if(!nr.desc?.trim()||!nr.category){fl("Description and Category are required");return;}
-    if(!nr.appliesToAll&&(!nr.appliesToEmails||!nr.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
-    onAddRec&&onAddRec({...nr,AppliesToAll:nr.appliesToAll||false,AppliesToEmails:nr.appliesToAll?"":(nr.appliesToEmails||[]).join(","),BiWeeklyStartDate:nr.biWeeklyStartDate||null,DueMonthCycle:nr.dueMonthCycle||null,DueMonthOfQuarter:nr.dueMonthOfQuarter||null});
+   function submitNewRec(){
+    if(!newRec.desc?.trim()||!newRec.category){fl("Description and Category are required");return;}
+    if(!newRec.appliesToAll&&(!nr.appliesToEmails||!nr.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
+    onAddRec&&onAddRec({...newRec,AppliesToAll:nr.appliesToAll||false,AppliesToEmails:nr.appliesToAll?"":(nr.appliesToEmails||[]).join(","),BiWeeklyStartDate:nr.biWeeklyStartDate||null,DueMonthCycle:nr.dueMonthCycle||null,DueMonthOfQuarter:nr.dueMonthOfQuarter||null});
     setAddOpen(false);
     setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
 
@@ -1198,7 +1119,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
               <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Delete this recurring task?"))onDeleteRec&&onDeleteRec(rec);}}>✕</button>
             </div>
           </div>
-          {isEditing&&<EditPanel fields={editFields} allStaff={allStaff} catList={catList} onSave={f=>{saveEdit(rec,f);}} onCancel={()=>setEditId(null)}/>}
+          {isEditing&&<EditPanel fields={editFields} setFields={setEditFields} allStaff={allStaff} catList={catList}/>}
           {isEditing&&<div style={{display:"flex",gap:6,justifyContent:"flex-end",padding:"8px 0"}}>
             <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setEditId(null)}>Cancel</button>
             <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveEdit(rec)}>✓ Save Changes</button>
@@ -1223,7 +1144,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         <div style={{...S.row,marginBottom:8}}>
           <div style={{flex:1}}><label style={S.label}>Cadence *</label><select style={selS} value={newRec.cadence} onChange={e=>setNewRec(p=>({...p,cadence:e.target.value}))}>{["Daily","Bi-Weekly","Weekly","Bi-Monthly","Monthly","Quarterly","Ad-Hoc"].map(c=><option key={c}>{c}</option>)}</select></div>
         </div>
-        <EditPanel fields={newRec} allStaff={allStaff} catList={catList} onSave={f=>{setNewRec(f);submitNewRec(f);}} onCancel={()=>setAddOpen(false)}/>
+        <EditPanel fields={newRec} setFields={setNewRec} allStaff={allStaff} catList={catList}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
           <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAddOpen(false)}>Cancel</button>
           <button style={{...S.btn(C.ok),...S.sm}} onClick={submitNewRec}>✓ Add Recurring Task</button>
@@ -2234,6 +2155,18 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
       })}
     </div>
   </div>;
+}
+
+}
+
+}
+
+}
+
+}
+
+}
+
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
