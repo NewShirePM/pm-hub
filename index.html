@@ -1060,6 +1060,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     setAddOpen(false);
     setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
 
+  }
   function submitAdhoc(){
     if(!newAdhoc.desc.trim()||!newAdhoc.assignedTo||!newAdhoc.dueDate){fl("Assigned To, Description, and Due Date are required");return;}
     onAssignAdhoc&&onAssignAdhoc(newAdhoc);
