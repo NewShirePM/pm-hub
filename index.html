@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23CDA04B'/><text x='16' y='23' font-family='Georgia,serif' font-size='22' font-weight='bold' fill='%2328434C' text-anchor='middle'>P</text></svg>"/>
-<title>PM Hub â NewShire</title>
+<title>PM Hub  NewShire</title>
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&family=Source+Code+Pro:wght@500;600&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -29,10 +29,10 @@ const{useState,useEffect,useCallback,useRef,useMemo}=React;
 (()=>{const l=document.querySelector("link[rel='icon']")||document.createElement("link");l.rel="icon";l.href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23CDA04B'/><text x='16' y='23' font-family='Georgia,serif' font-size='22' font-weight='bold' fill='%2328434C' text-anchor='middle'>P</text></svg>";document.head.appendChild(l)})();
 
 // ============================================================
-// CONFIG â update with real values after list audit
+// CONFIG  update with real values after list audit
 // ============================================================
 const CONFIG={
-  clientId:"32e75ffa-747a-4cf0-8209-6a19150c4547",  // existing VA Tracker app reg â may need new reg
+  clientId:"32e75ffa-747a-4cf0-8209-6a19150c4547",  // existing VA Tracker app reg  may need new reg
   tenantId:"33575d04-ca7b-4396-8011-9eaea4030b46",
   siteId:"vanrockre.sharepoint.com,a02c1cd8-9f1f-4827-8286-7b6b7ce74232,01202419-6625-4499-b0d5-8ceb1cffdba3",
   appName:"PM HUB",
@@ -118,9 +118,9 @@ function getChoiceVal(val){
 }
 function getCadence(val){return getChoiceVal(val);}
 function today(){return new Date().toISOString().slice(0,10);}
-function fD(d){if(!d)return"â";return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"});}
-function fT(d){if(!d)return"â";return new Date(d).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
-function fDT(d){if(!d)return"â";return fD(d)+" "+fT(d);}
+function fD(d){if(!d)return"";return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+function fT(d){if(!d)return"";return new Date(d).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
+function fDT(d){if(!d)return"";return fD(d)+" "+fT(d);}
 function daysLeft(due){if(!due)return null;const diff=Math.ceil((new Date(due)-new Date())/(864e5));return diff;}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function inRange(d,from,to){if(!d)return false;const t=new Date(d).getTime();return t>=new Date(from).getTime()&&t<=new Date(to).getTime()+864e5;}
@@ -135,7 +135,7 @@ function periodKey(cadence,dayOfWeek,dayOfMonth){
   return today();
 }
 
-const catIcon={"Work Orders":"ð§","Marketing":"ð¢","Resident Comms":"ð¬","Renewals":"ð","Inspections":"ð","Owner Relations":"ð ","Accounts":"ð°","Admin/Other":"ð","Leasing":"ð","Reporting":"ð"};
+const catIcon={"Work Orders":"[WO]","Marketing":"[MKT]","Resident Comms":"[RC]","Renewals":"[REN]","Inspections":"[INSP]","Owner Relations":"[OWN]","Accounts":"[ACCT]","Admin/Other":"[ADM]","Leasing":"[LEASE]","Reporting":"[RPT]"};
 const catList=["Work Orders","Marketing","Resident Comms","Renewals","Inspections","Owner Relations","Accounts","Admin/Other","Leasing","Reporting"];
 
 // ============================================================
@@ -176,7 +176,7 @@ function detectRole(emp,adminEmails,msalEmail){
   return null;
 }
 
-// Helper â true for any PM variant
+// Helper  true for any PM variant
 function isAnyPM(role){return role==="pm"||role==="pm-onsite"||role==="pm-remote"||role==="maintenance";}
 function isOnsitePM(role){return role==="pm"||role==="pm-onsite";}
 function isRemotePM(role){return role==="pm-remote";}
@@ -206,12 +206,12 @@ function Flash({msg}){
   return<div style={{background:C.g0,borderBottom:`1px solid ${C.g1}`,padding:"8px 20px",fontSize:13,fontWeight:600,color:C.g7,textAlign:"center"}}>{msg}</div>;
 }
 
-function Spinner(){return<div style={{textAlign:"center",padding:60,color:C.b4,fontSize:14}}>Loadingâ¦</div>;}
+function Spinner(){return<div style={{textAlign:"center",padding:60,color:C.b4,fontSize:14}}>Loading</div>;}
 
 function AccessDenied({email}){
   return<div style={{...S.content,textAlign:"center",paddingTop:80}}>
     <div style={{...S.card,maxWidth:400,margin:"0 auto",borderLeft:`3px solid ${C.er}`}}>
-      <div style={{fontSize:36,marginBottom:12}}>ð«</div>
+      <div style={{fontSize:36,marginBottom:12}}></div>
       <div style={{fontSize:17,fontWeight:700,color:C.er,marginBottom:8}}>Access Denied</div>
       <div style={{color:C.b4,fontSize:13}}>Your account is not authorized to access PM Hub.</div>
       {email&&<div style={{fontSize:11,color:C.b3,marginTop:8}}>Signed in as: {email}</div>}
@@ -233,11 +233,11 @@ function TaskDetailModal({task,onClose,onComplete,onFlagHelp,role}){
     <div style={{background:C.wh,borderRadius:8,padding:22,width:440,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(15,35,40,.22)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
         <div style={{fontSize:15,fontWeight:700,color:C.t7,lineHeight:1.3,flex:1,marginRight:8}}>{taskLabel}</div>
-        <button style={{...S.btnO(C.b4,C.b2),...S.xs,flexShrink:0}} onClick={onClose}>â</button>
+        <button style={{...S.btnO(C.b4,C.b2),...S.xs,flexShrink:0}} onClick={onClose}></button>
       </div>
       <div style={{fontSize:11,color:C.b4,marginBottom:14,paddingBottom:12,borderBottom:`1px solid ${C.b1}`}}>
-        {task.Category} Â· {task.Cadence||"Ad-Hoc"} Â· {task.PropertyName||"General"}
-        {dl!==null&&<> Â· <span style={{fontWeight:600,color:dl<=0?C.er:dl<=3?C.wn:C.t4}}>{dl<=0?"Overdue":`${dl}d left`}</span></>}
+        {task.Category} . {task.Cadence||"Ad-Hoc"} . {task.PropertyName||"General"}
+        {dl!==null&&<> . <span style={{fontWeight:600,color:dl<=0?C.er:dl<=3?C.wn:C.t4}}>{dl<=0?"Overdue":`${dl}d left`}</span></>}
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
@@ -247,7 +247,7 @@ function TaskDetailModal({task,onClose,onComplete,onFlagHelp,role}){
         </div>
         <div style={{background:task.DueDate&&dl<=0?C.erb:task.DueDate&&dl<=3?C.wnb:C.t0,borderRadius:4,padding:"8px 10px"}}>
           <div style={{fontSize:10,fontWeight:700,color:C.b4,textTransform:"uppercase",marginBottom:2}}>Due</div>
-          <div style={{fontSize:13,fontWeight:600,color:task.DueDate&&dl<=0?C.er:task.DueDate&&dl<=3?C.wn:C.t7}}>{task.DueDate?fD(task.DueDate):task.Cadence==="Daily"?`Daily by ${task.OnTimeCutoff||"5:00 PM"}`:task.Cadence==="Weekly"?`Due ${["Mon","Tue","Wed","Thu","Fri"][task.DueDayOfWeek??2]}`:task.Cadence==="Monthly"?`Due ${task.DueDayOfMonth||5}th of month`:"â"}</div>
+          <div style={{fontSize:13,fontWeight:600,color:task.DueDate&&dl<=0?C.er:task.DueDate&&dl<=3?C.wn:C.t7}}>{task.DueDate?fD(task.DueDate):task.Cadence==="Daily"?`Daily by ${task.OnTimeCutoff||"5:00 PM"}`:task.Cadence==="Weekly"?`Due ${["Mon","Tue","Wed","Thu","Fri"][task.DueDayOfWeek??2]}`:task.Cadence==="Monthly"?`Due ${task.DueDayOfMonth||5}th of month`:""}</div>
         </div>
       </div>
 
@@ -269,11 +269,11 @@ function TaskDetailModal({task,onClose,onComplete,onFlagHelp,role}){
       <div style={{display:"flex",gap:8,paddingTop:12,borderTop:`1px solid ${C.b1}`,flexWrap:"wrap"}}>
         <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={onClose}>Close</button>
         {task.Status!=="Completed"&&task.Status!=="Missed"&&<>
-          <button style={{...S.btnO(C.wn,C.wn),...S.sm}} onClick={()=>onFlagHelp&&onFlagHelp(task)}>ð© Flag Help</button>
+          <button style={{...S.btnO(C.wn,C.wn),...S.sm}} onClick={()=>onFlagHelp&&onFlagHelp(task)}> Flag Help</button>
           {confirming
-            ?<><button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>{onComplete&&onComplete(task,notes);onClose();}}>â Confirm Complete</button>
+            ?<><button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>{onComplete&&onComplete(task,notes);onClose();}}> Confirm Complete</button>
                <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setConfirming(false)}>Back</button></>
-            :<button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>setConfirming(true)}>â Mark Complete</button>
+            :<button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>setConfirming(true)}> Mark Complete</button>
           }
         </>}
       </div>
@@ -305,12 +305,12 @@ function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
 
   return<div style={{position:"fixed",inset:0,background:"rgba(28,55,64,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div style={{background:C.wh,borderRadius:8,padding:22,width:380,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(15,35,40,.22)"}}>
-      <div style={{fontSize:15,fontWeight:700,color:C.t7,marginBottom:3}}>ð© Flag Help</div>
+      <div style={{fontSize:15,fontWeight:700,color:C.t7,marginBottom:3}}> Flag Help</div>
       <div style={{fontSize:11,color:C.b4,marginBottom:16,paddingBottom:12,borderBottom:`1px solid ${C.b1}`}}>{taskLabel}</div>
 
-      {[{k:"peer",title:"&#128101; Peer Help",desc:"Post to the shared Help Queue â any available PM can claim it"},
-        {k:"tag",title:"ð·&#65039; Tag Team Member",desc:"Send directly to Brandy, Cara, John, or Leslie"},
-        {k:"va",title:"ð Assign to VA",desc:"Route to your assigned VA â appears in VA Tracker immediately"}
+      {[{k:"peer",title:"&#128101; Peer Help",desc:"Post to the shared Help Queue  any available PM can claim it"},
+        {k:"tag",title:".&#65039; Tag Team Member",desc:"Send directly to Brandy, Cara, John, or Leslie"},
+        {k:"va",title:" Assign to VA",desc:"Route to your assigned VA  appears in VA Tracker immediately"}
       ].map(o=><div key={o.k} onClick={()=>setType(o.k)} style={{display:"flex",alignItems:"flex-start",gap:10,padding:10,border:`1.5px solid ${type===o.k?C.t6:C.b2}`,borderRadius:6,cursor:"pointer",marginBottom:8,background:type===o.k?C.t0:C.wh,transition:".15s"}}>
         <input type="radio" readOnly checked={type===o.k} style={{marginTop:3,accentColor:C.t7}}/>
         <div><div style={{fontSize:13,fontWeight:600,color:C.t7}}>{o.title}</div><div style={{fontSize:11,color:C.b4,marginTop:1}}>{o.desc}</div></div>
@@ -320,7 +320,7 @@ function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
         <label style={S.label}>Tag</label>
         <select style={S.select} value={tagTarget} onChange={e=>setTagTarget(e.target.value)}>
           <option value="">Select person...</option>
-          {tagTargets.map(t=><option key={t.email} value={t.email}>{t.name} â {t.role}</option>)}
+          {tagTargets.map(t=><option key={t.email} value={t.email}>{t.name}  {t.role}</option>)}
         </select>
         <label style={{...S.label,marginTop:8}}>Message (optional)</label>
         <input style={S.input} value={tagMsg} onChange={e=>setTagMsg(e.target.value)} placeholder="Any context for them..."/>
@@ -332,8 +332,8 @@ function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
           <option value="">Select property...</option>
           {myProps.map(p=><option key={p.id} value={p.Title||p.id}>{p.PropertyName}</option>)}
         </select>
-        {assignedVA&&<div style={{fontSize:11,color:C.ok,marginTop:4}}>â Routes to: {assignedVA.Name}</div>}
-        {vaProp&&!assignedVA&&<div style={{fontSize:11,color:C.er,marginTop:4}}>â  No VA assigned to this property</div>}
+        {assignedVA&&<div style={{fontSize:11,color:C.ok,marginTop:4}}> Routes to: {assignedVA.Name}</div>}
+        {vaProp&&!assignedVA&&<div style={{fontSize:11,color:C.er,marginTop:4}}> No VA assigned to this property</div>}
         <label style={{...S.label,marginTop:8}}>Category *</label>
         <select style={S.select} value={vaCategory} onChange={e=>setVACategory(e.target.value)}>
           <option value="">Select...</option>
@@ -353,7 +353,7 @@ function FlagHelpModal({task,data,myEmail,myEmp,onRoute,onClose}){
           if(type==="va"&&!assignedVA)return;
           onRoute(task,type,{tagTarget,tagMsg,vaCategory,vaDesc,vaNotes,vaProp,assignedVA});
           onClose();
-        }}>Route â</button>
+        }}>Route </button>
       </div>
     </div>
   </div>;
@@ -379,7 +379,7 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,onNA,role,myE
   else if(getChoiceVal(task.Priority)==="High")leftBorder=C.wn;
 
   return<div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.b1}`,opacity:getChoiceVal(task.Status)==="Completed"?0.6:1}}>
-    <span style={{fontSize:15,flexShrink:0}}>{catIcon[task.Category]||"ð"}</span>
+    <span style={{fontSize:15,flexShrink:0}}>{catIcon[task.Category]||""}</span>
     <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>onOpenDetail&&onOpenDetail(task)}>
       <div style={{fontSize:13,fontWeight:500,color:getChoiceVal(task.Status)==="Missed"?C.er:C.t7,textDecoration:getChoiceVal(task.Status)==="Completed"?"line-through":"none"}}>
         {taskLabel}
@@ -392,17 +392,17 @@ function TaskCard({task,onStart,onComplete,onFlagHelp,onOpenDetail,onNA,role,myE
         {getChoiceVal(task.Status)==="Missed"&&<Badge type="error">Missed</Badge>}
         {getChoiceVal(task.Status)==="Help Needed"&&<Badge type="warning">Help Needed</Badge>}
         
-        {overdue&&task.Status!=="Missed"&&<span style={{fontSize:10,color:C.er,fontWeight:700}}>â  Overdue</span>}
+        {overdue&&task.Status!=="Missed"&&<span style={{fontSize:10,color:C.er,fontWeight:700}}> Overdue</span>}
         {dueSoon&&task.Status!=="Completed"&&<span style={{fontSize:10,color:C.wn,fontWeight:700}}>Due in {dl}d</span>}
         {task.DueDate&&task.Status!=="Completed"&&!overdue&&!dueSoon&&<span style={{fontSize:10,color:C.t4}}>Due {fD(task.DueDate)}</span>}
       </div>
     </div>
     {canAct&&task.Status!=="Completed"&&task.Status!=="Missed"&&<div style={{display:"flex",gap:4,flexShrink:0}}>
       {(getChoiceVal(task.Status)==="Queued"||getChoiceVal(task.Status)==="In Progress")&&canAct&&<>
-        <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}>â Done</button>
+        <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onComplete&&onComplete(task,"")}> Done</button>
         <button style={{...S.btnO(C.b4,C.b2),...S.xs}} onClick={()=>onNA&&onNA(task)} title="Not applicable today">N/A</button>
       </>}
-      <button style={{...S.btnO(C.wn,C.wn),...S.xs}} onClick={()=>onFlagHelp&&onFlagHelp(task)}>ð©</button>
+      <button style={{...S.btnO(C.wn,C.wn),...S.xs}} onClick={()=>onFlagHelp&&onFlagHelp(task)}></button>
     </div>}
   </div>;
 }
@@ -425,7 +425,7 @@ function ChecklistSection({label,icon,tasks,onStart,onComplete,onFlagHelp,onOpen
           <div style={{width:`${pct}%`,height:"100%",background:pct===100?C.ok:pct>=50?C.wn:C.er,borderRadius:99}}/>
         </div>
       </div>
-      <span style={{fontSize:11,color:C.b4}}>{open?"â¼":"â¶"}</span>
+      <span style={{fontSize:11,color:C.b4}}>{open?"":""}</span>
     </div>
     {open&&<div>
       {!tasks.length&&<div style={{textAlign:"center",padding:"14px 0",color:C.b3,fontSize:12,fontStyle:"italic"}}>No tasks for this period.</div>}
@@ -447,7 +447,7 @@ function VAReviewSection({reviews,onReply,onResolve,myEmail}){
   if(!pending.length)return null;
   return<div style={{...S.card,borderLeft:`3px solid ${C.er}`}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-      <div style={{fontSize:14,fontWeight:700,color:C.er}}>ð© Needs Your Review ({pending.length})</div>
+      <div style={{fontSize:14,fontWeight:700,color:C.er}}> Needs Your Review ({pending.length})</div>
     </div>
     {pending.map((r,i)=>{
       const isOpen=expanded[r.id];
@@ -459,17 +459,17 @@ function VAReviewSection({reviews,onReply,onResolve,myEmail}){
             {(r.VAName||r.RequestorName||"VA").split(" ").map(w=>w[0]).slice(0,2).join("")}
           </div>
           <div>
-            <div style={{fontSize:13,fontWeight:700,color:C.t7}}>{r.VAName||r.RequestorName} Â· {r.PropertyName}</div>
-            <div style={{fontSize:11,color:C.b4}}>{r.Category} Â· {fDT(r.ActivityDate)} Â· {(thread.length||0)+1} message{(thread.length||0)>0?"s":""}</div>
+            <div style={{fontSize:13,fontWeight:700,color:C.t7}}>{r.VAName||r.RequestorName} . {r.PropertyName}</div>
+            <div style={{fontSize:11,color:C.b4}}>{r.Category} . {fDT(r.ActivityDate)} . {(thread.length||0)+1} message{(thread.length||0)>0?"s":""}</div>
           </div>
           <Badge type={r.Status==="Responded"?"info":"warning"}>{r.Status==="Responded"?"PM Replied":"Awaiting Response"}</Badge>
         </div>
         <div style={{background:C.b1,borderRadius:4,padding:"7px 10px",marginBottom:4}}>
-          <div style={{fontSize:10,fontWeight:700,color:C.t4,marginBottom:2}}>{r.VAName||"VA"} Â· {fDT(r.ActivityDate)}</div>
+          <div style={{fontSize:10,fontWeight:700,color:C.t4,marginBottom:2}}>{r.VAName||"VA"} . {fDT(r.ActivityDate)}</div>
           <div style={{fontSize:12,color:C.b6}}>"{r.Notes}"</div>
         </div>
         {lastResponse&&<div style={{background:C.okb,borderRadius:4,padding:"7px 10px",marginBottom:8}}>
-          <div style={{fontSize:10,fontWeight:700,color:C.ok,marginBottom:2}}>{lastResponse.AssignedByName||"You"} Â· {fDT(lastResponse.ActivityDate)}</div>
+          <div style={{fontSize:10,fontWeight:700,color:C.ok,marginBottom:2}}>{lastResponse.AssignedByName||"You"} . {fDT(lastResponse.ActivityDate)}</div>
           <div style={{fontSize:12,color:C.b6}}>"{lastResponse.Notes}"</div>
         </div>}
         {thread.length>1&&<button style={{...S.btnO(C.t4,C.t1),...S.xs,marginBottom:8}} onClick={()=>setExpanded(p=>({...p,[r.id]:!p[r.id]}))}>
@@ -483,7 +483,7 @@ function VAReviewSection({reviews,onReply,onResolve,myEmail}){
           <textarea style={{...S.input,minHeight:52,resize:"vertical",marginBottom:6}} placeholder="Type your response..." value={replyText[r.id]||""} onChange={e=>setReplyText(p=>({...p,[r.id]:e.target.value}))}/>
           <div style={{display:"flex",gap:6}}>
             <button style={{...S.btn(C.t7),...S.sm,flex:1}} onClick={()=>{if(replyText[r.id]?.trim()){onReply(r.id,replyText[r.id]);setReplyText(p=>({...p,[r.id]:""}));}}} >Reply</button>
-            <button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>{onResolve(r.id,replyText[r.id]||"");setReplyText(p=>({...p,[r.id]:""}));}}>â Mark Resolved</button>
+            <button style={{...S.btn(C.ok),...S.sm,flex:1}} onClick={()=>{onResolve(r.id,replyText[r.id]||"");setReplyText(p=>({...p,[r.id]:""}));}}> Mark Resolved</button>
           </div>
         </div>}
       </div>;
@@ -521,7 +521,7 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
     if(type==="peer")onFlagHelp&&onFlagHelp(task,"peer",{});
     else if(type==="tag")onFlagHelp&&onFlagHelp(task,"tag",opts);
     else if(type==="va")onFlagHelp&&onFlagHelp(task,"va",opts);
-    fl(type==="peer"?"Added to Help Queue â any available PM can claim it":type==="tag"?`Tagged ${opts.tagTarget} â they've been notified`:`VA task sent to ${opts.assignedVA?.Name}`);
+    fl(type==="peer"?"Added to Help Queue  any available PM can claim it":type==="tag"?`Tagged ${opts.tagTarget}  they've been notified`:`VA task sent to ${opts.assignedVA?.Name}`);
   }
 
   return<div style={S.content}>
@@ -539,20 +539,20 @@ function MyChecklistView({data,tasks,role,myEmail,myEmp,myProps,onStart,onComple
     <VAReviewSection reviews={reviews} onReply={onReplyReview} onResolve={onResolveReview} myEmail={myEmail}/>
 
     {/* Checklist sections */}
-    <ChecklistSection label="Daily" icon="ð" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail}/>
-    {biweekly.length>0&&<ChecklistSection label="Bi-Weekly" icon="ð" tasks={biweekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!biweekly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
-    <ChecklistSection label="Weekly" icon="ð" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!weekly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>
-    {bimonthly.length>0&&<ChecklistSection label="Bi-Monthly" icon="ð" tasks={bimonthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!bimonthly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
-    <ChecklistSection label="Monthly" icon="ð" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!monthly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>
-    {quarterly.length>0&&<ChecklistSection label="Quarterly" icon="ð" tasks={quarterly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!quarterly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
+    <ChecklistSection label="Daily" icon="" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail}/>
+    {biweekly.length>0&&<ChecklistSection label="Bi-Weekly" icon="" tasks={biweekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!biweekly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
+    <ChecklistSection label="Weekly" icon="" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!weekly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>
+    {bimonthly.length>0&&<ChecklistSection label="Bi-Monthly" icon="" tasks={bimonthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!bimonthly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
+    <ChecklistSection label="Monthly" icon="" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!monthly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>
+    {quarterly.length>0&&<ChecklistSection label="Quarterly" icon="" tasks={quarterly} onStart={onStart} onComplete={onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} onNA={onNA} role={role} myEmail={myEmail} defaultOpen={!!quarterly.filter(t=>getChoiceVal(t.Status)!=="Completed").length}/>}
 
     {adhoc.length>0&&<div style={S.card}>
-      <div style={{...S.cardT,color:C.inf}}>ð Ad-Hoc Tasks Assigned to You ({adhoc.length})</div>
+      <div style={{...S.cardT,color:C.inf}}> Ad-Hoc Tasks Assigned to You ({adhoc.length})</div>
       {adhoc.map((t,i)=><TaskCard key={t.id||i} task={t} onStart={onStart} onComplete={onCompleteAdhoc||onComplete} onFlagHelp={setHelpTask} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>)}
     </div>}
 
     {missed.length>0&&<div style={{...S.card,opacity:.7}}>
-      <div style={{...S.cardT,color:C.er}}>â  Missed Tasks ({missed.length})</div>
+      <div style={{...S.cardT,color:C.er}}> Missed Tasks ({missed.length})</div>
       {missed.map((t,i)=><TaskCard key={t.id||i} task={t} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>)}
     </div>}
 
@@ -608,27 +608,27 @@ function HelpQueueView({queue,tags,role,myEmail,myEmp,onClaim,onResolveQueue,fl}
 
   return<div style={S.content}>
     {myTags.length>0&&<div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
-      <div style={S.cardT}>ð·&#65039; Tagged Items ({myTags.length})</div>
+      <div style={S.cardT}>.&#65039; Tagged Items ({myTags.length})</div>
       {myTags.map((t,i)=><div key={t.id||i} style={{padding:"10px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"flex-start",gap:10}}>
         <div style={{flex:1}}>
           <div style={{fontSize:13,fontWeight:600,color:C.t7}}>{t.TaskTitle}</div>
-          <div style={{fontSize:11,color:C.b4,marginTop:2}}>From: <strong>{t.FromName}</strong> Â· {t.PropertyName||"General"} Â· {fDT(t.CreatedAt)}</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}>From: <strong>{t.FromName}</strong> . {t.PropertyName||"General"} . {fDT(t.CreatedAt)}</div>
           {t.Message&&<div style={{fontSize:12,color:C.b6,marginTop:4,fontStyle:"italic"}}>"{t.Message}"</div>}
         </div>
         <div style={{display:"flex",gap:4,flexShrink:0}}>
           <Badge type="gold">{getChoiceVal(t.Status)}</Badge>
-          <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolveQueue&&onResolveQueue("tag",t.id)}>â Done</button>
+          <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolveQueue&&onResolveQueue("tag",t.id)}> Done</button>
         </div>
       </div>)}
     </div>}
 
     <div style={S.card}>
-      <div style={{...S.cardT}}>&#128101; Peer Help Queue â Open ({open.length})</div>
+      <div style={{...S.cardT}}>&#128101; Peer Help Queue  Open ({open.length})</div>
       {!open.length&&<div style={{textAlign:"center",padding:"20px 0",color:C.b3,fontSize:13,fontStyle:"italic"}}>No open help requests right now.</div>}
       {open.map((q,i)=><div key={q.id||i} style={{padding:"10px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"flex-start",gap:10}}>
         <div style={{flex:1}}>
           <div style={{fontSize:13,fontWeight:600,color:C.t7}}>{q.TaskTitle}</div>
-          <div style={{fontSize:11,color:C.b4,marginTop:2}}><strong>{q.RequestingPMName}</strong> Â· {q.PropertyName||"General"} Â· <Badge type={q.Priority==="High"||q.Priority==="Urgent"?"warning":"neutral"}>{q.Priority}</Badge> Â· {fDT(q.CreatedAt)}</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}><strong>{q.RequestingPMName}</strong> . {q.PropertyName||"General"} . <Badge type={q.Priority==="High"||q.Priority==="Urgent"?"warning":"neutral"}>{q.Priority}</Badge> . {fDT(q.CreatedAt)}</div>
           {q.Notes&&<div style={{fontSize:12,color:C.b6,marginTop:4,fontStyle:"italic"}}>"{q.Notes}"</div>}
         </div>
         {q.RequestingPMEmail?.toLowerCase()!==myEmail?.toLowerCase()&&<button style={{...S.btn(C.t7),...S.xs}} onClick={()=>onClaim&&onClaim(q)}>Claim</button>}
@@ -637,20 +637,20 @@ function HelpQueueView({queue,tags,role,myEmail,myEmp,onClaim,onResolveQueue,fl}
     </div>
 
     {claimed.length>0&&<div style={{...S.card,opacity:.7}}>
-      <div style={S.cardT}>â In Progress ({claimed.length})</div>
+      <div style={S.cardT}> In Progress ({claimed.length})</div>
       {claimed.map((q,i)=><div key={q.id||i} style={{padding:"8px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"center",gap:10}}>
         <div style={{flex:1}}>
           <div style={{fontSize:13,color:C.t7}}>{q.TaskTitle}</div>
           <div style={{fontSize:11,color:C.b4,marginTop:2}}>Claimed by <strong>{q.ClaimedByName}</strong></div>
         </div>
-        {q.ClaimedByEmail?.toLowerCase()===myEmail?.toLowerCase()&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolveQueue&&onResolveQueue("peer",q.id)}>â Resolve</button>}
+        {q.ClaimedByEmail?.toLowerCase()===myEmail?.toLowerCase()&&<button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolveQueue&&onResolveQueue("peer",q.id)}> Resolve</button>}
       </div>)}
     </div>}
   </div>;
 }
 
 // ============================================================
-// VA REVIEW REPLY BOX (shared component â matches VA Tracker)
+// VA REVIEW REPLY BOX (shared component  matches VA Tracker)
 // ============================================================
 function ReviewReplyBox({review,allResponses,myEmail,myName,onReply,onResolve}){
   const[open,setOpen]=useState(false);
@@ -659,12 +659,12 @@ function ReviewReplyBox({review,allResponses,myEmail,myName,onReply,onResolve}){
   const lastResp=thread[thread.length-1];
   return<div>
     {lastResp&&<div style={{background:C.okb,borderRadius:4,padding:"6px 10px",marginBottom:6}}>
-      <div style={{fontSize:10,fontWeight:700,color:C.ok,marginBottom:2}}>{lastResp.AssignedByName||"PM"} Â· {fDT(lastResp.ActivityDate)}</div>
+      <div style={{fontSize:10,fontWeight:700,color:C.ok,marginBottom:2}}>{lastResp.AssignedByName||"PM"} . {fDT(lastResp.ActivityDate)}</div>
       <div style={{fontSize:12,color:C.b6}}>"{lastResp.Notes}"</div>
     </div>}
     {!open&&<div style={{display:"flex",gap:6,marginTop:8}}>
       <button style={{...S.btn(C.t7),...S.xs}} onClick={()=>setOpen(true)}>Reply</button>
-      <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolve(review.id,"")}>â Mark Resolved</button>
+      <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onResolve(review.id,"")}> Mark Resolved</button>
     </div>}
     {open&&<div style={{marginTop:8}}>
       <textarea style={{...S.input,minHeight:52,marginBottom:6,resize:"vertical",fontSize:12}} value={note} onChange={e=>setNote(e.target.value)} placeholder="Type your response..."/>
@@ -678,7 +678,7 @@ function ReviewReplyBox({review,allResponses,myEmail,myName,onReply,onResolve}){
 }
 
 // ============================================================
-// VA TASKS TAB â shared component (matches VA Tracker Manager View)
+// VA TASKS TAB  shared component (matches VA Tracker Manager View)
 // ============================================================
 function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview,onResolveReview,onSubmitVATask,fl}){
   const[prop,setProp]=useState("");
@@ -691,7 +691,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
   const allProps=data?.properties||[];
   const myPortfolioProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{const pm=data?.pms?.find(e=>e.Email?.toLowerCase()===myEmail?.toLowerCase());return pm||true;});
 
-  // Reviews pre-filtered to this PM's properties in loadAll â VA_Activity has no PMEmail column
+  // Reviews pre-filtered to this PM's properties in loadAll  VA_Activity has no PMEmail column
   const pendingReviews=(reviews||[]).filter(r=>(r.ActivityType==="Review"||r.ActivityType==="ReviewRequest")&&r.Status!=="Resolved");
   const myActivityProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{
     const portfolio=data?.portfolios?.find(pf=>pf.PropertyId===p.Title||pf.PropertyId===p.id);
@@ -712,7 +712,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
     if(!prop||!cat||!desc.trim()){fl("Please fill in Property, Category, and Task");return;}
     if(!routedVA){fl("No VA assigned to this property");return;}
     onSubmitVATask&&onSubmitVATask({prop,cat,pri,desc,notes,routedVA});
-    fl(`Task sent to ${routedVAName} â visible in VA Tracker immediately`);
+    fl(`Task sent to ${routedVAName}  visible in VA Tracker immediately`);
     setProp("");setCat("");setPri("Normal");setDesc("");setNotes("");
   }
 
@@ -720,7 +720,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
     {/* Needs Your Review */}
     {pendingReviews.length>0&&<div style={{...S.card,borderTop:`3px solid ${C.er}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <div style={{fontSize:14,fontWeight:700,color:C.er}}>ð© Needs Your Review â {pendingReviews.length} items</div>
+        <div style={{fontSize:14,fontWeight:700,color:C.er}}> Needs Your Review  {pendingReviews.length} items</div>
       </div>
       <div style={{fontSize:12,color:C.b4,marginBottom:12}}>VAs flagged these tasks and are waiting on your response</div>
       {pendingReviews.map((r,i)=><div key={r.id||i} style={{borderBottom:`1px solid ${C.b1}`,paddingBottom:14,marginBottom:14}}>
@@ -729,12 +729,12 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
             {(r.VAName||"VA").split(" ").map(w=>w[0]).slice(0,2).join("")}
           </div>
           <div>
-            <div style={{fontSize:14,fontWeight:700,color:C.t7}}>{r.VAName} Â· {r.PropertyName}</div>
-            <div style={{fontSize:11,color:C.b4}}>{r.Category} Â· {fDT(r.ActivityDate)} Â· <strong>{((allResponses||[]).filter(x=>x.GroupId===r.GroupId).length||0)+1} messages</strong></div>
+            <div style={{fontSize:14,fontWeight:700,color:C.t7}}>{r.VAName} . {r.PropertyName}</div>
+            <div style={{fontSize:11,color:C.b4}}>{r.Category} . {fDT(r.ActivityDate)} . <strong>{((allResponses||[]).filter(x=>x.GroupId===r.GroupId).length||0)+1} messages</strong></div>
           </div>
         </div>
         <div style={{background:C.b1,borderRadius:4,padding:"7px 10px",marginBottom:6}}>
-          <div style={{fontSize:10,fontWeight:700,color:C.t4,marginBottom:2}}>{r.VAName} Â· {fDT(r.ActivityDate)}</div>
+          <div style={{fontSize:10,fontWeight:700,color:C.t4,marginBottom:2}}>{r.VAName} . {fDT(r.ActivityDate)}</div>
           <div style={{fontSize:13,color:C.b6}}>"{r.Notes}"</div>
         </div>
         <ReviewReplyBox review={r} allResponses={allResponses} myEmail={myEmail} myName={myEmp?.Name} onReply={onReplyReview} onResolve={onResolveReview}/>
@@ -743,7 +743,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
 
     {/* Property Cards */}
     <div style={{...S.card}}>
-      <div style={S.cardT}>ð Currently Active on Your Portfolio</div>
+      <div style={S.cardT}> Currently Active on Your Portfolio</div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
         {myActivityProps.slice(0,6).map((p,i)=>{
           const acts=vaActivities.filter(a=>a.PropertyName===p.PropertyName||a.PropertyName===p.Title);
@@ -763,7 +763,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
                 <div style={{fontSize:9,color:C.b4,textTransform:"uppercase",letterSpacing:".03em"}}>{s.l}</div>
               </div>)}
             </div>
-            {blocked>0&&<div style={{fontSize:11,color:C.er,marginTop:6}}>â  {blocked} blocked â needs your response</div>}
+            {blocked>0&&<div style={{fontSize:11,color:C.er,marginTop:6}}> {blocked} blocked  needs your response</div>}
           </div>;
         })}
       </div>
@@ -771,8 +771,8 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
 
     {/* Submit Task for VA */}
     <div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
-      <div style={S.cardT}>ð {isLeslie?"Request VA Help":"Submit Task for VA"}</div>
-      <div style={{fontSize:12,color:C.b4,marginBottom:12}}>Select a property â routes to that property's assigned VA in VA Tracker immediately.</div>
+      <div style={S.cardT}> {isLeslie?"Request VA Help":"Submit Task for VA"}</div>
+      <div style={{fontSize:12,color:C.b4,marginBottom:12}}>Select a property  routes to that property's assigned VA in VA Tracker immediately.</div>
       <div style={{...S.row,marginBottom:10}}>
         <div style={{flex:2,minWidth:170}}>
           <label style={S.label}>Property *</label>
@@ -780,8 +780,8 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
             <option value="">Select property...</option>
             {allProps.map(p=><option key={p.id} value={p.Title||p.id}>{p.PropertyName||p.Title}</option>)}
           </select>
-          {prop&&routedVAName&&<div style={{fontSize:11,color:C.ok,marginTop:3}}>â Routes to: {routedVAName}</div>}
-          {prop&&!routedVAName&&<div style={{fontSize:11,color:C.er,marginTop:3}}>â  No VA assigned to this property</div>}
+          {prop&&routedVAName&&<div style={{fontSize:11,color:C.ok,marginTop:3}}> Routes to: {routedVAName}</div>}
+          {prop&&!routedVAName&&<div style={{fontSize:11,color:C.er,marginTop:3}}> No VA assigned to this property</div>}
         </div>
         <div style={{flex:2,minWidth:140}}>
           <label style={S.label}>Category *</label>
@@ -799,12 +799,12 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
       </div>
       <div style={{marginBottom:8}}><label style={S.label}>Task *</label><input style={S.input} value={desc} onChange={e=>setDesc(e.target.value)} placeholder="What needs to be done..."/></div>
       <div style={{marginBottom:12}}><label style={S.label}>Notes for VA</label><input style={S.input} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Additional context (optional)"/></div>
-      <button style={{...S.btn(C.g5,C.dk),width:"100%",minHeight:42}} onClick={submit}>ð Submit Task</button>
+      <button style={{...S.btn(C.g5,C.dk),width:"100%",minHeight:42}} onClick={submit}> Submit Task</button>
     </div>
 
     {/* Recent Activity */}
     <div style={S.card}>
-      <div style={S.cardT}>Recent Activity â {isLeslie?"Tasks I've Sent":"My Properties"} (7 days)</div>
+      <div style={S.cardT}>Recent Activity  {isLeslie?"Tasks I've Sent":"My Properties"} (7 days)</div>
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr>{["Date","Property","VA","Task","Status"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
@@ -813,7 +813,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
               <td style={{...S.td,whiteSpace:"nowrap"}}>{fD(a.ActivityDate)}</td>
               <td style={{...S.td,fontSize:11}}>{a.PropertyName}</td>
               <td style={{...S.td,fontWeight:500}}>{a.VAName}</td>
-              <td style={S.td}>{a.Title?.replace(/^Task-/,"")}<br/>{a.Notes&&<span style={{fontSize:10,color:C.b4}}>ð¬ {a.Notes?.slice(0,60)}</span>}</td>
+              <td style={S.td}>{a.Title?.replace(/^Task-/,"")}<br/>{a.Notes&&<span style={{fontSize:10,color:C.b4}}> {a.Notes?.slice(0,60)}</span>}</td>
               <td style={S.td}><Badge type={getChoiceVal(a.Status)==="Completed"?"success":getChoiceVal(a.Status)==="Blocked"?"error":getChoiceVal(a.Status)==="Queued"?"neutral":"warning"}>{a.Status}</Badge></td>
             </tr>)}
             {!vaActivities.length&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No activity in the last 7 days.</td></tr>}
@@ -837,11 +837,11 @@ function ARTasksView({tasks,vaActivities,data,myEmail,myEmp,role,onStart,onCompl
   return<div style={S.content}>
     <div style={{marginBottom:14}}>
       <div style={{fontSize:17,fontWeight:700,color:C.t7}}>My Tasks</div>
-      <div style={{fontSize:12,color:C.b4}}>AR Specialist Â· Recurring tasks only</div>
+      <div style={{fontSize:12,color:C.b4}}>AR Specialist . Recurring tasks only</div>
     </div>
-    <ChecklistSection label="Daily" icon="ð" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>
-    {weekly.length>0&&<ChecklistSection label="Weekly" icon="ð" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={false}/>}
-    {monthly.length>0&&<ChecklistSection label="Monthly" icon="ð" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={false}/>}
+    <ChecklistSection label="Daily" icon="" tasks={daily} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail}/>
+    {weekly.length>0&&<ChecklistSection label="Weekly" icon="" tasks={weekly} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={false}/>}
+    {monthly.length>0&&<ChecklistSection label="Monthly" icon="" tasks={monthly} onStart={onStart} onComplete={onComplete} onFlagHelp={onFlagHelp} onOpenDetail={setDetailTask} role={role} myEmail={myEmail} defaultOpen={false}/>}
     {detailTask&&<TaskDetailModal task={detailTask} onClose={()=>setDetailTask(null)} onComplete={(t,n)=>{onComplete(t,n);setDetailTask(null);}} role={role}/>}
   </div>;
 }
@@ -881,7 +881,7 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggl
   return<div style={S.content}>
     {/* Out PMs banner */}
     {outPMs.size>0&&<div style={{...S.card,borderLeft:`3px solid ${C.er}`,background:"rgba(196,75,59,0.04)",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.er,marginBottom:6}}>ð¨ PMs Currently Out ({outPMs.size})</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.er,marginBottom:6}}> PMs Currently Out ({outPMs.size})</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         {pms.filter(p=>p.PMTrackerStatus==="Out").map(p=><div key={p.Email} style={{display:"flex",alignItems:"center",gap:6,background:C.white,border:`1px solid ${C.er}`,borderRadius:4,padding:"4px 10px"}}>
           <span style={{fontSize:12,fontWeight:600,color:C.er}}>{p.Name}</span>
@@ -909,7 +909,7 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggl
     <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
       <KPI label="Generated" value={total}/>
       <KPI label="Completed" value={done} color={C.ok}/>
-      <KPI label="On Time %" value={onTimePct!==null?`${onTimePct}%`:"â"} color={onTimePct===null?C.b4:onTimePct>=80?C.ok:onTimePct>=60?C.wn:C.er}/>
+      <KPI label="On Time %" value={onTimePct!==null?`${onTimePct}%`:""} color={onTimePct===null?C.b4:onTimePct>=80?C.ok:onTimePct>=60?C.wn:C.er}/>
       <KPI label="Late" value={late} color={late?C.wn:C.ok}/>
       <KPI label="Missed" value={missed} color={missed?C.er:C.ok}/>
       <KPI label="Help Queue" value={openHelp} color={openHelp?C.wn:C.ok}/>
@@ -931,9 +931,9 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggl
               <td style={S.td}><Badge type={pm.isOut?"error":"success"}>{pm.isOut?"Out":"Active"}</Badge></td>
               <td style={S.td}>{pm.total}</td>
               <td style={S.td}>{pm.done}</td>
-              <td style={S.td}><span style={{fontWeight:700,color:pm.onTimePct===null?C.b4:pm.onTimePct>=80?C.ok:pm.onTimePct>=60?C.wn:C.er}}>{pm.onTimePct!==null?`${pm.onTimePct}%`:"â"}</span></td>
+              <td style={S.td}><span style={{fontWeight:700,color:pm.onTimePct===null?C.b4:pm.onTimePct>=80?C.ok:pm.onTimePct>=60?C.wn:C.er}}>{pm.onTimePct!==null?`${pm.onTimePct}%`:""}</span></td>
               <td style={{...S.td,color:pm.late?C.wn:C.ok}}>{pm.late}</td>
-              <td style={{...S.td,color:pm.missed?C.er:C.ok}}>{pm.isOut?"â":pm.missed}</td>
+              <td style={{...S.td,color:pm.missed?C.er:C.ok}}>{pm.isOut?"":pm.missed}</td>
               <td style={S.td}><button style={{...(pm.isOut?S.btn(C.ok):S.btnO(C.er,C.er)),...S.xs}} onClick={()=>onToggleAbsence&&onToggleAbsence(pm)}>{pm.isOut?"Mark In":"Mark Out"}</button></td>
             </tr>)}
             {!pmStats.length&&<tr><td colSpan={8} style={{...S.td,textAlign:"center",color:C.b3,padding:"20px 0",fontStyle:"italic"}}>No data for this period.</td></tr>}
@@ -948,7 +948,7 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggl
       {queue.filter(q=>q.Status==="Open").map((q,i)=><div key={q.id||i} style={{padding:"8px 0",borderBottom:`1px solid ${C.b1}`,display:"flex",alignItems:"center",gap:10}}>
         <div style={{flex:1}}>
           <div style={{fontSize:13,color:C.t7,fontWeight:500}}>{q.TaskTitle}</div>
-          <div style={{fontSize:11,color:C.b4,marginTop:2}}>{q.RequestingPMName} Â· {q.PropertyName||"General"} Â· {fDT(q.CreatedAt)}</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}>{q.RequestingPMName} . {q.PropertyName||"General"} . {fDT(q.CreatedAt)}</div>
         </div>
         <Badge type={q.Priority==="High"||q.Priority==="Urgent"?"warning":"neutral"}>{q.Priority}</Badge>
       </div>)}
@@ -1050,7 +1050,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     };
     onSaveRec&&onSaveRec(rec.id,saveFields);
     setEditId(null);
-    fl("Recurring task updated â changes take effect at next generation");
+    fl("Recurring task updated  changes take effect at next generation");
   }
 
    function submitNewRec(){
@@ -1104,26 +1104,26 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         const isEditing=editId===rec.id;
         const assignedLabel=rec.AppliesToAll?"Everyone":(rec.AppliesToEmails?(rec.AppliesToEmails.split(",").map(e=>{const s=allStaff.find(p=>p.Email?.toLowerCase()===e.trim().toLowerCase());return s?s.Name.split(" ")[0]:e;}).filter(Boolean).join(", ")||"?"):(rec.AppliesToEmail||"?"));
         const cad=getCadence(rec.Cadence)||"Daily";
-        const sub=`${assignedLabel} Â· ${cad}`+(cad==="Weekly"?` Â· ${days[(rec.DueDayOfWeek??1)-1]||"Mon"}`:"")+(cad==="Bi-Weekly"?` Â· starts ${rec.BiWeeklyStartDate?.slice(0,10)||"?"}`:"")+(cad==="Bi-Monthly"?` Â· Cycle ${rec.DueMonthCycle===2?"B":"A"} Â· day ${rec.DueDayOfMonth||1}`:"")+((cad==="Monthly"||cad==="Quarterly")?` Â· day ${rec.DueDayOfMonth||1}`:"")+(cad==="Quarterly"?` Â· month ${rec.DueMonthOfQuarter||1} of qtr`:"");
+        const sub=`${assignedLabel} . ${cad}`+(cad==="Weekly"?` . ${days[(rec.DueDayOfWeek??1)-1]||"Mon"}`:"")+(cad==="Bi-Weekly"?` . starts ${rec.BiWeeklyStartDate?.slice(0,10)||"?"}`:"")+(cad==="Bi-Monthly"?` . Cycle ${rec.DueMonthCycle===2?"B":"A"} . day ${rec.DueDayOfMonth||1}`:"")+((cad==="Monthly"||cad==="Quarterly")?` . day ${rec.DueDayOfMonth||1}`:"")+(cad==="Quarterly"?` . month ${rec.DueMonthOfQuarter||1} of qtr`:"");
         return<div key={rec.id||i} style={{borderBottom:`1px solid ${C.b1}`}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0"}}>
-            <span style={{fontSize:14,marginTop:1,flexShrink:0}}>{catIcon[rec.Category]||"ð"}</span>
+            <span style={{fontSize:14,marginTop:1,flexShrink:0}}>{catIcon[rec.Category]||""}</span>
             <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>isEditing?setEditId(null):startEdit(rec)}>
               <div style={{fontSize:13,fontWeight:500,color:rec.IsActive===false?C.b3:C.t7,opacity:rec.IsActive===false?.6:1}}>{rec.Description}</div>
               <div style={{fontSize:11,color:C.b4,marginTop:2}}>{sub}</div>
-              {rec.ContextNotes&&!isEditing&&<div style={{fontSize:10,color:C.b3,marginTop:2,fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:420}}>"{rec.ContextNotes.slice(0,80)}{rec.ContextNotes.length>80?"â¦":""}"</div>}
+              {rec.ContextNotes&&!isEditing&&<div style={{fontSize:10,color:C.b3,marginTop:2,fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:420}}>"{rec.ContextNotes.slice(0,80)}{rec.ContextNotes.length>80?"":""}"</div>}
             </div>
             <div style={{display:"flex",gap:4,flexShrink:0}}>
               <Badge type={rec.IsActive===false?"warning":"success"}>{rec.IsActive===false?"Paused":"Active"}</Badge>
-              <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>isEditing?setEditId(null):startEdit(rec)}>{isEditing?"â Cancel":"â Edit"}</button>
-              <button style={{...S.btnO(rec.IsActive===false?C.ok:C.wn,rec.IsActive===false?C.ok:C.wn),...S.xs}} onClick={()=>onToggleRec&&onToggleRec(rec)}>{rec.IsActive===false?"â¶ On":"Pause"}</button>
-              <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Delete this recurring task?"))onDeleteRec&&onDeleteRec(rec);}}>â</button>
+              <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>isEditing?setEditId(null):startEdit(rec)}>{isEditing?" Cancel":" Edit"}</button>
+              <button style={{...S.btnO(rec.IsActive===false?C.ok:C.wn,rec.IsActive===false?C.ok:C.wn),...S.xs}} onClick={()=>onToggleRec&&onToggleRec(rec)}>{rec.IsActive===false?" On":"Pause"}</button>
+              <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Delete this recurring task?"))onDeleteRec&&onDeleteRec(rec);}}></button>
             </div>
           </div>
           {isEditing&&<EditPanel fields={editFields} setFields={setEditFields} allStaff={allStaff} catList={catList}/>}
           {isEditing&&<div style={{display:"flex",gap:6,justifyContent:"flex-end",padding:"8px 0"}}>
             <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setEditId(null)}>Cancel</button>
-            <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveEdit(rec)}>â Save Changes</button>
+            <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveEdit(rec)}> Save Changes</button>
           </div>}
         </div>;
       })}
@@ -1137,8 +1137,8 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     {/* Recurring Task Management */}
     <div style={S.card}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:4}}>
-        <div style={S.cardT}>ð Recurring Task Management</div>
-        <button style={{...S.btn(C.hdr),...S.sm}} onClick={()=>setAddOpen(o=>!o)}>{addOpen?"â Cancel":"+ Add Task"}</button>
+        <div style={S.cardT}> Recurring Task Management</div>
+        <button style={{...S.btn(C.hdr),...S.sm}} onClick={()=>setAddOpen(o=>!o)}>{addOpen?" Cancel":"+ Add Task"}</button>
       </div>
       {addOpen&&<div style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:C.t7,marginBottom:8}}>New Recurring Task</div>
@@ -1148,7 +1148,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         <EditPanel fields={newRec} setFields={setNewRec} allStaff={allStaff} catList={catList}/>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
           <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAddOpen(false)}>Cancel</button>
-          <button style={{...S.btn(C.ok),...S.sm}} onClick={submitNewRec}>â Add Recurring Task</button>
+          <button style={{...S.btn(C.ok),...S.sm}} onClick={submitNewRec}> Add Recurring Task</button>
         </div>
       </div>}
       {/* Group by cadence */}
@@ -1165,10 +1165,10 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     <div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:12}}>
         <div>
-          <div style={S.cardT}>ð Assign Ad-Hoc Task</div>
-          <div style={{fontSize:11,color:C.b4,marginTop:2}}>One-time tasks with a due date â stay in queue until completed or marked missed</div>
+          <div style={S.cardT}> Assign Ad-Hoc Task</div>
+          <div style={{fontSize:11,color:C.b4,marginTop:2}}>One-time tasks with a due date  stay in queue until completed or marked missed</div>
         </div>
-        <button style={{...S.btn(C.g5,C.dk),...S.sm}} onClick={()=>setAdhocOpen(o=>!o)}>{adhocOpen?"â Cancel":"+ Assign Task"}</button>
+        <button style={{...S.btn(C.g5,C.dk),...S.sm}} onClick={()=>setAdhocOpen(o=>!o)}>{adhocOpen?" Cancel":"+ Assign Task"}</button>
       </div>
       {adhocOpen&&<div style={{background:C.g0,border:`1px solid ${C.g1}`,borderRadius:6,padding:14,marginBottom:14}}>
         <div style={{...S.row,marginBottom:8}}>
@@ -1186,13 +1186,13 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
           <div style={{flex:1}}><label style={S.label}>Due Date *</label><input type="date" style={inputS} value={newAdhoc.dueDate} onChange={e=>setNewAdhoc(p=>({...p,dueDate:e.target.value}))}/></div>
         </div>
         <RField label="Task Description *"><input style={inputS} value={newAdhoc.desc} onChange={e=>setNewAdhoc(p=>({...p,desc:e.target.value}))} placeholder="What needs to be done..."/></RField>
-        <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}>â visible to recipient when they tap the task</span></>}>
+        <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}> visible to recipient when they tap the task</span></>}>
           <textarea style={{...inputS,minHeight:60,resize:"vertical"}} value={newAdhoc.contextNotes} onChange={e=>setNewAdhoc(p=>({...p,contextNotes:e.target.value}))} placeholder="Background, instructions, links, relevant history..."/>
         </RField>
-        <div style={{background:C.g0,border:`1px solid ${C.g1}`,borderRadius:4,padding:"7px 10px",marginBottom:10,fontSize:11,color:C.g7}}>&#9203; This task stays in the recipient's queue until they complete it â or you mark it missed. It will not auto-miss.</div>
+        <div style={{background:C.g0,border:`1px solid ${C.g1}`,borderRadius:4,padding:"7px 10px",marginBottom:10,fontSize:11,color:C.g7}}>&#9203; This task stays in the recipient's queue until they complete it  or you mark it missed. It will not auto-miss.</div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
           <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAdhocOpen(false)}>Cancel</button>
-          <button style={{...S.btn(C.g5,C.dk),...S.sm}} onClick={submitAdhoc}>ð Assign Task</button>
+          <button style={{...S.btn(C.g5,C.dk),...S.sm}} onClick={submitAdhoc}> Assign Task</button>
         </div>
       </div>}
 
@@ -1204,16 +1204,16 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         const dl=t.DueDate?daysLeft(t.DueDate):null;
         return<div key={t.id||i} style={{borderBottom:`1px solid ${C.b1}`}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0"}}>
-            <span style={{fontSize:14,marginTop:1,flexShrink:0}}>{catIcon[t.Category]||"ð"}</span>
+            <span style={{fontSize:14,marginTop:1,flexShrink:0}}>{catIcon[t.Category]||""}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:500,color:C.t7}}>{t.Title||t.Description}</div>
-              <div style={{fontSize:11,color:C.b4,marginTop:2}}>{t.PMName} Â· {t.Category} Â· {t.PropertyName||"General"} Â· Due: {fD(t.DueDate)}{dl!==null?<span style={{fontWeight:600,color:dl<=0?C.er:dl<=3?C.wn:C.t4}}> Â· {dl<=0?"Overdue":`${dl}d left`}</span>:null}</div>
-              {t.ContextNotes&&!isEditing&&<div style={{fontSize:10,color:C.b3,marginTop:2,fontStyle:"italic"}}>"{t.ContextNotes.slice(0,70)}â¦"</div>}
+              <div style={{fontSize:11,color:C.b4,marginTop:2}}>{t.PMName} . {t.Category} . {t.PropertyName||"General"} . Due: {fD(t.DueDate)}{dl!==null?<span style={{fontWeight:600,color:dl<=0?C.er:dl<=3?C.wn:C.t4}}> . {dl<=0?"Overdue":`${dl}d left`}</span>:null}</div>
+              {t.ContextNotes&&!isEditing&&<div style={{fontSize:10,color:C.b3,marginTop:2,fontStyle:"italic"}}>"{t.ContextNotes.slice(0,70)}"</div>}
             </div>
             <div style={{display:"flex",gap:4,flexShrink:0}}>
               <Badge type="warning">{getChoiceVal(t.Status)}</Badge>
-              <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>isEditing?setAdhocEditId(null):startAdhocEdit(t)}>{isEditing?"â Cancel":"â Edit"}</button>
-              <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Mark this task as Missed?"))onMissAdhoc&&onMissAdhoc(t);}}>â Miss</button>
+              <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>isEditing?setAdhocEditId(null):startAdhocEdit(t)}>{isEditing?" Cancel":" Edit"}</button>
+              <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm("Mark this task as Missed?"))onMissAdhoc&&onMissAdhoc(t);}}> Miss</button>
             </div>
           </div>
           {isEditing&&<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:14,marginBottom:8}}>
@@ -1227,12 +1227,12 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
               <div style={{flex:2}}><label style={S.label}>Property</label><select style={selS} value={adhocEditFields.propertyId} onChange={e=>setAdhocEditFields(p=>({...p,propertyId:e.target.value}))}><option value="">General</option>{allProps.map(p=><option key={p.id} value={p.Title||p.id}>{p.PropertyName||p.Title}</option>)}</select></div>
               <div style={{flex:1}}><label style={S.label}>Due Date</label><input type="date" style={inputS} value={adhocEditFields.dueDate} onChange={e=>setAdhocEditFields(p=>({...p,dueDate:e.target.value}))}/></div>
             </div>
-            <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}>â visible to recipient</span></>}>
+            <RField label={<>Context / Notes <span style={{fontSize:10,color:C.g6,fontWeight:600}}> visible to recipient</span></>}>
               <textarea style={{...inputS,minHeight:60,resize:"vertical"}} value={adhocEditFields.contextNotes} onChange={e=>setAdhocEditFields(p=>({...p,contextNotes:e.target.value}))}/>
             </RField>
             <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
               <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setAdhocEditId(null)}>Cancel</button>
-              <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveAdhocEdit(t)}>â Save Changes</button>
+              <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>saveAdhocEdit(t)}> Save Changes</button>
             </div>
           </div>}
         </div>;
@@ -1252,10 +1252,10 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     <div style={{...S.card,borderLeft:`3px solid ${C.wn}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
-          <div style={{fontSize:15,fontWeight:600,color:C.t7}}>ð Close Day</div>
+          <div style={{fontSize:15,fontWeight:600,color:C.t7}}> Close Day</div>
           <div style={{fontSize:12,color:C.b4,marginTop:3}}>Marks all remaining Queued and In Progress daily tasks as Missed. Resolves open Help Queue items.</div>
         </div>
-        <button style={{...S.btn(C.g5,C.dk)}} onClick={()=>{if(window.confirm("Close the day? All remaining daily tasks will be marked Missed."))fl("Close Day executed â pending daily tasks marked Missed");}}>Close Day</button>
+        <button style={{...S.btn(C.g5,C.dk)}} onClick={()=>{if(window.confirm("Close the day? All remaining daily tasks will be marked Missed."))fl("Close Day executed  pending daily tasks marked Missed");}}>Close Day</button>
       </div>
     </div>
   </div>;
@@ -1265,7 +1265,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 // TASK GENERATION ENGINE (client-side safety net)
 // Primary engine is Power Automate at 6AM daily.
 // This runs on page load and only generates if tasks are missing
-// for the current period â never auto-misses.
+// for the current period  never auto-misses.
 // ============================================================
 async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail,myEmp){
   const toCreate=[];
@@ -1330,7 +1330,7 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
     }
     if(!shouldGenerate)continue;
 
-    // Dedup check â period key
+    // Dedup check  period key
     const pk=periodKey(cad,def.DueDayOfWeek,def.DueDayOfMonth);
     const defId=String(def.id||def.Id||"");
     const myLower=myEmail?.toLowerCase()||"";
@@ -1487,7 +1487,7 @@ function App(){
 
       const recurringDefs=recurringRaw.map(r=>({...r.fields,id:r.id}));
       // Build a lookup of recurring defs by BOTH OData id and fields.id (SharePoint internal ID)
-      // PS script stores fields.id as RecurringTaskId; Graph returns r.id as OData id â these differ
+      // PS script stores fields.id as RecurringTaskId; Graph returns r.id as OData id  these differ
       const recurringById={};
       recurringRaw.forEach(r=>{
         const def={...r.fields,id:r.id};
@@ -1516,7 +1516,7 @@ function App(){
       const vaActivities=vaActivityRaw.map(r=>({...r.fields,id:r.id}));
       const pms=emps.filter(e=>{const r=detectRole(e,CONFIG.adminEmails,msalEmail);return r==="pm"||r==="pm-onsite"||r==="pm-remote"||r==="admin";});
       const vas=emps.filter(e=>e.JobTitle==="Virtual Assistant");
-      // VA_Activity has no PMEmail column â match reviews by property ownership
+      // VA_Activity has no PMEmail column  match reviews by property ownership
       // Find PropertyIds managed by this PM from VA_Properties
       // Match reviews by property ownership - check both PMEmail and PMName since VA_Properties may use either
       const myPropIds=new Set([
@@ -1539,7 +1539,7 @@ function App(){
       // Generate missing tasks for current user (safety net)
       if(userRole==="pm"||userRole==="ar"||userRole==="admin"){
         const myActivity=activity.filter(a=>a.PMEmail?.toLowerCase()===myEmail);
-        // Client-side generation disabled â use Generate-TodaysTasks.ps1 instead
+        // Client-side generation disabled  use Generate-TodaysTasks.ps1 instead
         // await generateMissingTasks(tk,recurringDefs,myActivity,myEmail,me);
         // Reload activity after generation
         const freshActivity=await safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500`);
@@ -1577,7 +1577,7 @@ function App(){
         completionStatus="Late";
       }
       await gPatch(tk,iUrl(CONFIG.listPMActivity,task.id),{Status:"Completed",CompletionStatus:completionStatus,CompletedAt:now,Notes:notes||""});
-      await loadAll();fl("â Task complete "+(completionStatus==="Late"?"(Late)":""));
+      await loadAll();fl(" Task complete "+(completionStatus==="Late"?"(Late)":""));
     }catch(e){fl("Error: "+e.message);}
   }
 
@@ -1619,7 +1619,7 @@ function App(){
           await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name});
           await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Coverage: ${task.Description||task.Title}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:pm.Email,RequestingPMName:pm.Name,Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name,Notes:`Auto-generated: ${pm.Name} is marked Out`,CreatedAt:new Date().toISOString()});
         }
-        fl(`${pm.Name} marked Out â ${pmTasks.length} tasks sent to Help Queue`);
+        fl(`${pm.Name} marked Out  ${pmTasks.length} tasks sent to Help Queue`);
       } else {
         // Mark In: remove coverage flag from their unclaimed tasks
         const coverageTasks=(data?.activity||[]).filter(a=>a.CoverageForEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getChoiceVal(a.Status)==="Queued");
@@ -1837,7 +1837,7 @@ function App(){
     return tabs.map(t=>t.k==="helpqueue"?{...t,l:`Help Queue${openHQ>0?" ("+openHQ+")":""}`}:t);
   },[role,data?.helpQueue]);
 
-  // Use state-persisted resolved email â avoids null-myEmp race on first render
+  // Use state-persisted resolved email  avoids null-myEmp race on first render
   const myEmail=myEmailState||(myEmp?.Email||acct?.username||"").toLowerCase();
 
   // Guard: if email not yet resolved, show nothing rather than everything
@@ -1856,7 +1856,7 @@ function App(){
   const effectiveRole=(role==="admin"&&viewMode==="pm-remote")?"pm-remote":role;
   const finalTabsForRole=effectiveRole;
 
-  if(!acct)return<div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>&#127970;</div><div style={{fontSize:15,color:C.t7,marginBottom:8}}>Signing in to PM Hubâ¦</div></div></div>;
+  if(!acct)return<div style={{...S.page,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{textAlign:"center"}}><div style={{fontSize:32,marginBottom:12}}>&#127970;</div><div style={{fontSize:15,color:C.t7,marginBottom:8}}>Signing in to PM Hub</div></div></div>;
   if(role==="denied")return<div style={S.page}><AccessDenied email={myEmail}/></div>;
   if(loading||!myEmail)return<div style={S.page}><Spinner/></div>;
 
@@ -1872,7 +1872,7 @@ function App(){
         <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end",marginTop:3}}>
           <div style={S.hdrRole}>{effectiveRole?.toUpperCase()}</div>
           {role==="admin"&&<button onClick={()=>setViewMode(v=>v==="admin"?"pm-remote":"admin")} style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:99,border:"none",cursor:"pointer",background:viewMode==="pm-remote"?C.g5:C.t1,color:viewMode==="pm-remote"?C.dk:C.t7,fontFamily:font}}>
-            {viewMode==="pm-remote"?"â Admin View":"â PM View"}
+            {viewMode==="pm-remote"?" Admin View":" PM View"}
           </button>}
         </div>
       </div>
@@ -1927,7 +1927,7 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
   const pms=data?.pms||[];
   const sessions=(data?.oneOnOneSessions||[]).filter(s=>s.Status!=="Deleted").sort((a,b)=>(b.SessionDate||"").localeCompare(a.SessionDate||""));
 
-  // For PM view â only their sessions
+  // For PM view  only their sessions
   const mySessions=isPM&&!isRegional?sessions.filter(s=>s.PMEmail?.toLowerCase()===myEmail):sessions;
   const filteredSessions=selPM?mySessions.filter(s=>s.PMEmail?.toLowerCase()===selPM):mySessions;
 
@@ -1980,9 +1980,9 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
       <div>
         <div style={{fontSize:17,fontWeight:700,color:C.t7}}>1:1 Sessions</div>
-        <div style={{fontSize:12,color:C.b4}}>{isRegional?"Log coaching sessions with your PMs â captures a KPI snapshot at the time of the 1:1":"Your coaching session history with your Regional Manager"}</div>
+        <div style={{fontSize:12,color:C.b4}}>{isRegional?"Log coaching sessions with your PMs  captures a KPI snapshot at the time of the 1:1":"Your coaching session history with your Regional Manager"}</div>
       </div>
-      {isRegional&&<button style={{...S.btn(C.g5,C.dk)}} onClick={()=>setShowNew(o=>!o)}>{showNew?"â Cancel":"+ New 1:1"}</button>}
+      {isRegional&&<button style={{...S.btn(C.g5,C.dk)}} onClick={()=>setShowNew(o=>!o)}>{showNew?" Cancel":"+ New 1:1"}</button>}
     </div>
 
     {/* NEW SESSION FORM */}
@@ -2001,9 +2001,9 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
       </div>
 
       {snap&&<div style={{background:C.t0,border:`1px solid ${C.t1}`,borderRadius:6,padding:12,marginBottom:14}}>
-        <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>ð KPI Snapshot â Last 7 Days ({snap.from} &#8211; {snap.to})</div>
+        <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}> KPI Snapshot  Last 7 Days ({snap.from} &#8211; {snap.to})</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {[{l:"Tasks",v:snap.total},{l:"Completed",v:snap.completed,c:C.ok},{l:"On Time %",v:snap.onTimePct!==null?`${snap.onTimePct}%`:"â",c:snap.onTimePct===null?C.b4:snap.onTimePct>=80?C.ok:snap.onTimePct>=60?C.wn:C.er},{l:"Late",v:snap.late,c:snap.late?C.wn:C.ok},{l:"Missed",v:snap.missed,c:snap.missed?C.er:C.ok},{l:"Help Queue",v:snap.helpQueue,c:snap.helpQueue?C.wn:C.ok}].map((k,i)=><KPI key={i} label={k.l} value={k.v} color={k.c}/>)}
+          {[{l:"Tasks",v:snap.total},{l:"Completed",v:snap.completed,c:C.ok},{l:"On Time %",v:snap.onTimePct!==null?`${snap.onTimePct}%`:"",c:snap.onTimePct===null?C.b4:snap.onTimePct>=80?C.ok:snap.onTimePct>=60?C.wn:C.er},{l:"Late",v:snap.late,c:snap.late?C.wn:C.ok},{l:"Missed",v:snap.missed,c:snap.missed?C.er:C.ok},{l:"Help Queue",v:snap.helpQueue,c:snap.helpQueue?C.wn:C.ok}].map((k,i)=><KPI key={i} label={k.l} value={k.v} color={k.c}/>)}
         </div>
         <div style={{fontSize:10,color:C.b4,marginTop:8}}>This snapshot will be saved with the session log for both parties to reference.</div>
       </div>}
@@ -2011,20 +2011,20 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
       {/* Coaching fields */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
         <div>
-          <label style={S.label}>â Wins & Strengths</label>
+          <label style={S.label}> Wins & Strengths</label>
           <textarea style={{...S.input,minHeight:80,resize:"vertical"}} value={wins} onChange={e=>setWins(e.target.value)} placeholder="What is this PM doing well? Specific examples..."/>
         </div>
         <div>
-          <label style={S.label}>ð Areas to Improve</label>
+          <label style={S.label}> Areas to Improve</label>
           <textarea style={{...S.input,minHeight:80,resize:"vertical"}} value={improve} onChange={e=>setImprove(e.target.value)} placeholder="What needs attention? Be specific and actionable..."/>
         </div>
       </div>
       <div style={{marginBottom:12}}>
-        <label style={S.label}>ð Action Items</label>
+        <label style={S.label}> Action Items</label>
         <textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={actions} onChange={e=>setActions(e.target.value)} placeholder="Concrete next steps with owner and timeline..."/>
       </div>
       <div style={{marginBottom:14}}>
-        <label style={S.label}>ð Regional Notes (not shared with PM)</label>
+        <label style={S.label}> Regional Notes (not shared with PM)</label>
         <textarea style={{...S.input,minHeight:50,resize:"vertical"}} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Internal observations, context, escalation notes..."/>
       </div>
 
@@ -2032,17 +2032,17 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
       <div style={{background:C.g0,border:`1px solid ${C.g1}`,borderRadius:6,padding:12,marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:pendingTasks.length?8:0}}>
           <div>
-            <div style={{fontSize:13,fontWeight:600,color:C.t7}}>ð Add Recurring Tasks from This Session</div>
+            <div style={{fontSize:13,fontWeight:600,color:C.t7}}> Add Recurring Tasks from This Session</div>
             <div style={{fontSize:11,color:C.b4,marginTop:2}}>If you identify a gap during the 1:1, add a recurring reminder for this PM right now</div>
           </div>
           <button style={{...S.btnO(C.g6,C.g5),...S.sm}} onClick={()=>setAddTaskOpen(o=>!o)}>{addTaskOpen?"Cancel":"+ Add Task"}</button>
         </div>
         {pendingTasks.length>0&&<div style={{marginBottom:8}}>
           {pendingTasks.map((t,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:`1px solid ${C.g1}`}}>
-            <span style={{fontSize:12}}>{catIcon[t.category]||"ð"}</span>
+            <span style={{fontSize:12}}>{catIcon[t.category]||""}</span>
             <div style={{flex:1,fontSize:12,color:C.t7}}>{t.desc}</div>
-            <span style={{fontSize:10,color:C.b4}}>{t.cadence} Â· {t.category}</span>
-            <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>setPendingTasks(p=>p.filter((_,j)=>j!==i))}>â</button>
+            <span style={{fontSize:10,color:C.b4}}>{t.cadence} . {t.category}</span>
+            <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>setPendingTasks(p=>p.filter((_,j)=>j!==i))}></button>
           </div>)}
         </div>}
         {addTaskOpen&&<div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.g1}`}}>
@@ -2060,7 +2060,7 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
 
       <div style={{display:"flex",gap:8}}>
         <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>handleSave("Draft")}>Save Draft</button>
-        <button style={{...S.btn(C.t7),...S.sm,flex:1}} onClick={()=>handleSave("Shared with PM")}>â Save & Share with {selectedPM?.Name||"PM"}</button>
+        <button style={{...S.btn(C.t7),...S.sm,flex:1}} onClick={()=>handleSave("Shared with PM")}> Save & Share with {selectedPM?.Name||"PM"}</button>
       </div>
     </div>}
 
@@ -2081,7 +2081,7 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
         return<div key={s.id||i} style={{...S.card,borderLeft:`3px solid ${sessionStatusColor[s.Status]||C.b2}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}} onClick={()=>setViewSession(isExpanded?null:s.id)}>
             <div>
-              <div style={{fontSize:14,fontWeight:700,color:C.t7}}>{isRegional?s.PMName:"1:1 with Cara Munson"} <span style={{fontSize:11,fontWeight:400,color:C.b4}}>â {fD(s.SessionDate)}</span></div>
+              <div style={{fontSize:14,fontWeight:700,color:C.t7}}>{isRegional?s.PMName:"1:1 with Cara Munson"} <span style={{fontSize:11,fontWeight:400,color:C.b4}}> {fD(s.SessionDate)}</span></div>
               <div style={{fontSize:11,color:C.b4,marginTop:2,display:"flex",gap:10}}>
                 <span>Tasks: {s.SnapCompleted||0}/{s.SnapTasksTotal||0}</span>
                 {s.SnapOnTimePct!==undefined&&<span>On Time: <strong style={{color:s.SnapOnTimePct>=80?C.ok:s.SnapOnTimePct>=60?C.wn:C.er}}>{s.SnapOnTimePct}%</strong></span>}
@@ -2096,38 +2096,38 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
                   setEditingSessionId(editingSessionId===s.id?null:s.id);
                   setEditWins(s.Wins||"");setEditImprove(s.AreasToImprove||"");
                   setEditActions(s.ActionItems||"");setEditNotes(s.RegionalNotes||"");
-                }}>â Edit</button>
-                <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>onDeleteSession&&onDeleteSession(s.id)}>â</button>
+                }}> Edit</button>
+                <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>onDeleteSession&&onDeleteSession(s.id)}></button>
               </>}
-              <span style={{fontSize:11,color:C.b4}}>{isExpanded?"â²":"â¼"}</span>
+              <span style={{fontSize:11,color:C.b4}}>{isExpanded?"":""}</span>
             </div>
           </div>
 
           {isExpanded&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.b1}`}}>
             {/* KPI snapshot */}
             <div style={{background:C.t0,borderRadius:6,padding:10,marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:6}}>KPI Snapshot â {s.SnapPeriodFrom} &#8211; {s.SnapPeriodTo}</div>
+              <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:6}}>KPI Snapshot  {s.SnapPeriodFrom} &#8211; {s.SnapPeriodTo}</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {[{l:"Tasks",v:s.SnapTasksTotal||0},{l:"Done",v:s.SnapCompleted||0,c:C.ok},{l:"On Time%",v:s.SnapOnTimePct!==null?`${s.SnapOnTimePct}%`:"â",c:s.SnapOnTimePct>=80?C.ok:s.SnapOnTimePct>=60?C.wn:C.er},{l:"Late",v:s.SnapLate||0,c:s.SnapLate?C.wn:C.ok},{l:"Missed",v:s.SnapMissed||0,c:s.SnapMissed?C.er:C.ok},{l:"Help Q",v:s.SnapHelpQueue||0}].map((k,ki)=><KPI key={ki} label={k.l} value={k.v} color={k.c}/>)}
+                {[{l:"Tasks",v:s.SnapTasksTotal||0},{l:"Done",v:s.SnapCompleted||0,c:C.ok},{l:"On Time%",v:s.SnapOnTimePct!==null?`${s.SnapOnTimePct}%`:"",c:s.SnapOnTimePct>=80?C.ok:s.SnapOnTimePct>=60?C.wn:C.er},{l:"Late",v:s.SnapLate||0,c:s.SnapLate?C.wn:C.ok},{l:"Missed",v:s.SnapMissed||0,c:s.SnapMissed?C.er:C.ok},{l:"Help Q",v:s.SnapHelpQueue||0}].map((k,ki)=><KPI key={ki} label={k.l} value={k.v} color={k.c}/>)}
               </div>
             </div>
 
             {/* Coaching content */}
-            {s.Wins&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.ok,textTransform:"uppercase",marginBottom:4}}>â Wins</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.Wins}</div></div>}
-            {s.AreasToImprove&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.wn,textTransform:"uppercase",marginBottom:4}}>ð Areas to Improve</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.AreasToImprove}</div></div>}
-            {s.ActionItems&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:4}}>ð Action Items</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.ActionItems}</div></div>}
-            {isRegional&&s.RegionalNotes&&<div style={{marginBottom:10,background:C.t0,borderRadius:4,padding:"8px 10px"}}><div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:4}}>ð Regional Notes</div><div style={{fontSize:12,color:C.b6}}>{s.RegionalNotes}</div></div>}
+            {s.Wins&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.ok,textTransform:"uppercase",marginBottom:4}}> Wins</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.Wins}</div></div>}
+            {s.AreasToImprove&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.wn,textTransform:"uppercase",marginBottom:4}}> Areas to Improve</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.AreasToImprove}</div></div>}
+            {s.ActionItems&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:4}}> Action Items</div><div style={{fontSize:13,color:C.b6,lineHeight:1.5}}>{s.ActionItems}</div></div>}
+            {isRegional&&s.RegionalNotes&&<div style={{marginBottom:10,background:C.t0,borderRadius:4,padding:"8px 10px"}}><div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",marginBottom:4}}> Regional Notes</div><div style={{fontSize:12,color:C.b6}}>{s.RegionalNotes}</div></div>}
 
             {/* Tasks added */}
             {s.TasksAddedCount>0&&<div style={{marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:700,color:C.g6,textTransform:"uppercase",marginBottom:4}}>ð Recurring Tasks Added ({s.TasksAddedCount})</div>
-              {(()=>{try{const ts=JSON.parse(s.TasksAddedJSON||"[]");return ts.map((t,ti)=><div key={ti} style={{fontSize:12,color:C.t7,padding:"3px 0",borderBottom:`1px solid ${C.b1}`}}>{catIcon[t.category]||"ð"} {t.desc} <span style={{color:C.b4}}>Â· {t.cadence} Â· {t.category}</span></div>);}catch{return null;}})()}
+              <div style={{fontSize:11,fontWeight:700,color:C.g6,textTransform:"uppercase",marginBottom:4}}> Recurring Tasks Added ({s.TasksAddedCount})</div>
+              {(()=>{try{const ts=JSON.parse(s.TasksAddedJSON||"[]");return ts.map((t,ti)=><div key={ti} style={{fontSize:12,color:C.t7,padding:"3px 0",borderBottom:`1px solid ${C.b1}`}}>{catIcon[t.category]||""} {t.desc} <span style={{color:C.b4}}>. {t.cadence} . {t.category}</span></div>);}catch{return null;}})()}
             </div>}
 
             {/* PM response */}
             {/* Inline edit for drafts */}
             {editingSessionId===s.id&&(s.Status==="Draft"||!s.Status)&&isRegional&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${C.b1}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.t7,marginBottom:10}}>â Edit Draft Session</div>
+              <div style={{fontSize:12,fontWeight:700,color:C.t7,marginBottom:10}}> Edit Draft Session</div>
               <div style={{marginBottom:8}}><label style={S.label}>Wins</label><textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={editWins} onChange={e=>setEditWins(e.target.value)}/></div>
               <div style={{marginBottom:8}}><label style={S.label}>Areas to Improve</label><textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={editImprove} onChange={e=>setEditImprove(e.target.value)}/></div>
               <div style={{marginBottom:8}}><label style={S.label}>Action Items</label><textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={editActions} onChange={e=>setEditActions(e.target.value)}/></div>
@@ -2137,18 +2137,18 @@ function OneOnOneView({data,role,myEmail,myEmp,allTasks,onSaveSession,onUpdateSe
                 <button style={{...S.btn(C.t7),...S.sm}} onClick={()=>{
                   onUpdateSession&&onUpdateSession(s.id,{Wins:editWins,AreasToImprove:editImprove,ActionItems:editActions,RegionalNotes:editNotes,Status:"Draft"});
                   setEditingSessionId(null);
-                }}>ð¾ Save Draft</button>
+                }}> Save Draft</button>
                 <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>{
                   onUpdateSession&&onUpdateSession(s.id,{Wins:editWins,AreasToImprove:editImprove,ActionItems:editActions,RegionalNotes:editNotes,Status:"Shared with PM"});
                   setEditingSessionId(null);
-                }}>ð¤ Save & Share</button>
+                }}> Save & Share</button>
               </div>
             </div>}
             {s.Status==="Shared with PM"&&!isPM&&<div style={{fontSize:11,color:C.b4,fontStyle:"italic",marginTop:8}}>Waiting for PM to acknowledge this session.</div>}
             {s.Status==="Shared with PM"&&isPM&&s.PMEmail?.toLowerCase()===myEmail&&<div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.b1}`}}>
               <label style={S.label}>Your Response (optional)</label>
               <textarea style={{...S.input,minHeight:60,resize:"vertical",marginBottom:8}} value={pmResponse} onChange={e=>setPmResponse(e.target.value)} placeholder="Add any context or questions for your Regional..."/>
-              <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>{/* acknowledge */fl("Session acknowledged")}}>â Acknowledge & Respond</button>
+              <button style={{...S.btn(C.ok),...S.sm}} onClick={()=>{/* acknowledge */fl("Session acknowledged")}}> Acknowledge & Respond</button>
             </div>}
             {s.PMResponse&&<div style={{marginTop:10,background:C.okb,borderRadius:4,padding:"8px 10px"}}><div style={{fontSize:11,fontWeight:700,color:C.ok,marginBottom:3}}>PM Response</div><div style={{fontSize:12,color:C.b6}}>{s.PMResponse}</div></div>}
           </div>}
