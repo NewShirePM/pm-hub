@@ -1016,6 +1016,107 @@ function HistoryView({allTasks,pms,role,dfFrom,dfTo,setDfFrom,setDfTo}){
 
 
 // ============================================================
+
+function EditPanel({fields,setFields,allStaff,catList}){
+  const cad=fields.cadence||"Daily";
+  const isBiWeekly=cad==="Bi-Weekly";
+  const isWeekly=cad==="Weekly";
+  const isBiMonthly=cad==="Bi-Monthly";
+  const isMonthly=cad==="Monthly";
+  const isQuarterly=cad==="Quarterly";
+  const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
+  const inputS={...S.input,marginBottom:0};
+  const selS={...S.select,marginBottom:0};
+  function toggle(email){
+    const cur=fields.appliesToEmails||[];
+    setFields(p=>({...p,appliesToEmails:cur.includes(email)?cur.filter(e=>e!==email):[...cur,email]}));
+  }
+  return <div style={{background:C.t0,border:"1px solid "+C.t1,borderRadius:6,padding:14,marginTop:8}}>
+    <div style={{marginBottom:8}}>
+      <label style={S.label}>Description *</label>
+      <input style={inputS} value={fields.desc||""} onChange={e=>setFields(p=>({...p,desc:e.target.value}))}/>
+    </div>
+    <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+      <div style={{flex:1,minWidth:120}}>
+        <label style={S.label}>Cadence</label>
+        <select style={selS} value={cad} onChange={e=>setFields(p=>({...p,cadence:e.target.value}))}>
+          {["Daily","Weekly","Bi-Weekly","Bi-Monthly","Monthly","Quarterly","Ad-Hoc"].map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div style={{flex:1,minWidth:120}}>
+        <label style={S.label}>Category</label>
+        <select style={selS} value={fields.category||""} onChange={e=>setFields(p=>({...p,category:e.target.value}))}>
+          <option value="">Select...</option>
+          {(catList||[]).map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div style={{flex:1,minWidth:80}}>
+        <label style={S.label}>Priority</label>
+        <select style={selS} value={fields.priority||"Normal"} onChange={e=>setFields(p=>({...p,priority:e.target.value}))}>
+          {["Normal","High","Urgent"].map(p=><option key={p}>{p}</option>)}
+        </select>
+      </div>
+    </div>
+    {isWeekly&&<div style={{marginBottom:8}}>
+      <label style={S.label}>Day of Week</label>
+      <select style={selS} value={fields.dueDayOfWeek||1} onChange={e=>setFields(p=>({...p,dueDayOfWeek:+e.target.value}))}>
+        {days.map((d,i)=><option key={i+1} value={i+1}>{d}</option>)}
+      </select>
+    </div>}
+    {isBiWeekly&&<div style={{marginBottom:8}}>
+      <label style={S.label}>Start Date (first occurrence)</label>
+      <input type="date" style={selS} value={fields.biWeeklyStartDate||""} onChange={e=>setFields(p=>({...p,biWeeklyStartDate:e.target.value}))}/>
+    </div>}
+    {(isBiMonthly||isMonthly||isQuarterly)&&<div style={{display:"flex",gap:8,marginBottom:8}}>
+      {isBiMonthly&&<div style={{flex:1}}>
+        <label style={S.label}>Cycle</label>
+        <select style={selS} value={fields.dueMonthCycle||1} onChange={e=>setFields(p=>({...p,dueMonthCycle:+e.target.value}))}>
+          <option value={1}>Cycle A - Jan/Mar/May/Jul/Sep/Nov</option>
+          <option value={2}>Cycle B - Feb/Apr/Jun/Aug/Oct/Dec</option>
+        </select>
+      </div>}
+      {isQuarterly&&<div style={{flex:1}}>
+        <label style={S.label}>Month of Quarter</label>
+        <select style={selS} value={fields.dueMonthOfQuarter||1} onChange={e=>setFields(p=>({...p,dueMonthOfQuarter:+e.target.value}))}>
+          <option value={1}>Month 1 - Jan/Apr/Jul/Oct</option>
+          <option value={2}>Month 2 - Feb/May/Aug/Nov</option>
+          <option value={3}>Month 3 - Mar/Jun/Sep/Dec</option>
+        </select>
+      </div>}
+      <div style={{flex:1}}>
+        <label style={S.label}>Day of Month</label>
+        <select style={selS} value={fields.dueDayOfMonth||1} onChange={e=>setFields(p=>({...p,dueDayOfMonth:+e.target.value}))}>
+          {[1,2,3,5,7,10,14,15,20,21,25,28].map(d=><option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+    </div>}
+    <div style={{marginBottom:8}}>
+      <label style={S.label}>Assign To</label>
+      <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,fontSize:13,cursor:"pointer"}}>
+        <input type="checkbox" checked={!!fields.appliesToAll} onChange={e=>setFields(p=>({...p,appliesToAll:e.target.checked,appliesToEmails:[]}))}/>
+        Assign to Everyone (all PMs)
+      </label>
+      {!fields.appliesToAll&&<div style={{border:"1px solid "+C.b2,borderRadius:4,padding:"6px 8px",maxHeight:130,overflowY:"auto",display:"flex",flexWrap:"wrap",gap:4}}>
+        {(allStaff||[]).map(emp=>{
+          const checked=(fields.appliesToEmails||[]).includes(emp.Email?.toLowerCase()||"");
+          return <label key={emp.Email} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"2px 6px",borderRadius:99,background:checked?C.t1:C.b0,border:"1px solid "+(checked?C.t2:C.b1),fontWeight:checked?600:400}}>
+            <input type="checkbox" style={{display:"none"}} checked={checked} onChange={()=>toggle(emp.Email?.toLowerCase()||"")}/>
+            {emp.Name}{checked?" [x]":""}
+          </label>;
+        })}
+      </div>}
+    </div>
+    <div style={{marginBottom:8}}>
+      <label style={S.label}>Context Notes (shown to recipient)</label>
+      <textarea style={{...inputS,minHeight:60,resize:"vertical"}} value={fields.contextNotes||""} onChange={e=>setFields(p=>({...p,contextNotes:e.target.value}))} placeholder="Step-by-step instructions..."/>
+    </div>
+    <div>
+      <label style={S.label}>Admin Notes (private)</label>
+      <input style={inputS} value={fields.adminNotes||""} onChange={e=>setFields(p=>({...p,adminNotes:e.target.value}))} placeholder="Internal notes..."/>
+    </div>
+  </div>;
+}
+
 function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,fl}){
   const[editId,setEditId]=useState(null);
   const[editFields,setEditFields]=useState({});
