@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23CDA04B'/><text x='16' y='23' font-family='Georgia,serif' font-size='22' font-weight='bold' fill='%2328434C' text-anchor='middle'>P</text></svg>"/>
-<title>PM Hub  NewShire</title>
+<title>PM Hub v2.1 - NewShire</title>
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&family=Source+Code+Pro:wght@500;600&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -1156,8 +1156,8 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
    function submitNewRec(){
     if(!newRec.desc?.trim()||!newRec.category){fl("Description and Category are required");return;}
-    if(!newRec.appliesToAll&&(!newRec.appliesToEmails||!nr.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
-    onAddRec&&onAddRec({...newRec,AppliesToAll:newRec.appliesToAll||false,AppliesToEmails:nr.appliesToAll?"":(newRec.appliesToEmails||[]).join(","),BiWeeklyStartDate:newRec.biWeeklyStartDate||null,DueMonthCycle:newRec.dueMonthCycle||null,DueMonthOfQuarter:newRec.dueMonthOfQuarter||null});
+    if(!newRec.appliesToAll&&(!newRec.appliesToEmails||!newRec.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
+    onAddRec&&onAddRec({...newRec,AppliesToAll:newRec.appliesToAll||false,AppliesToEmails:newRec.appliesToAll?"":(newRec.appliesToEmails||[]).join(","),BiWeeklyStartDate:newRec.biWeeklyStartDate||null,DueMonthCycle:newRec.dueMonthCycle||null,DueMonthOfQuarter:newRec.dueMonthOfQuarter||null});
     setAddOpen(false);
     setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
 
