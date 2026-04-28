@@ -1156,8 +1156,8 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
    function submitNewRec(){
     if(!newRec.desc?.trim()||!newRec.category){fl("Description and Category are required");return;}
-    if(!newRec.appliesToAll&&(!nr.appliesToEmails||!nr.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
-    onAddRec&&onAddRec({...newRec,AppliesToAll:nr.appliesToAll||false,AppliesToEmails:nr.appliesToAll?"":(nr.appliesToEmails||[]).join(","),BiWeeklyStartDate:nr.biWeeklyStartDate||null,DueMonthCycle:nr.dueMonthCycle||null,DueMonthOfQuarter:nr.dueMonthOfQuarter||null});
+    if(!newRec.appliesToAll&&(!newRec.appliesToEmails||!nr.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
+    onAddRec&&onAddRec({...newRec,AppliesToAll:newRec.appliesToAll||false,AppliesToEmails:nr.appliesToAll?"":(newRec.appliesToEmails||[]).join(","),BiWeeklyStartDate:newRec.biWeeklyStartDate||null,DueMonthCycle:newRec.dueMonthCycle||null,DueMonthOfQuarter:newRec.dueMonthOfQuarter||null});
     setAddOpen(false);
     setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
 
