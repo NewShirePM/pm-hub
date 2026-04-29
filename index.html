@@ -742,7 +742,7 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
     <div style={{...S.card}}>
       <div style={S.cardT}>📋 Currently Active on Your Portfolio</div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-        {myActivityProps.slice(0,6).map((p,i)=>{
+        {myActivityProps.map((p,i)=>{
           const acts=vaActivities.filter(a=>a.PropertyName===p.PropertyName||a.PropertyName===p.Title);
           const done=acts.filter(a=>getChoiceVal(a.Status)==="Completed").length;
           const pending=acts.filter(a=>getChoiceVal(a.Status)==="Queued"||getChoiceVal(a.Status)==="In Progress").length;
@@ -1611,7 +1611,9 @@ function App(){
       // Match reviews by property ownership - check both PMEmail and PMName since VA_Properties may use either
       const myPropIds=new Set([
         ...propsRaw.map(p=>p.fields).filter(p=>p.PMEmail?.toLowerCase()===myEmail).map(p=>p.Title),
+        ...propsRaw.map(p=>p.fields).filter(p=>p.PMEmail?.toLowerCase()===myEmail).map(p=>p.PropertyName).filter(Boolean),
         ...propsRaw.map(p=>p.fields).filter(p=>p.PMName?.toLowerCase()===me?.Name?.toLowerCase()).map(p=>p.Title),
+        ...propsRaw.map(p=>p.fields).filter(p=>p.PMName?.toLowerCase()===me?.Name?.toLowerCase()).map(p=>p.PropertyName).filter(Boolean),
       ]);
       // For admin - show all reviews; for PM - show reviews for their properties
       const isAdminUser=userRole==="admin";
