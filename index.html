@@ -689,14 +689,11 @@ function VATasksView({data,reviews,allResponses,myEmail,myEmp,role,onReplyReview
 
   const isLeslie=myEmp?.JobTitle==="AR Specialist"||(role==="ar");
   const allProps=data?.properties||[];
-  const myPortfolioProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{const pm=data?.pms?.find(e=>e.Email?.toLowerCase()===myEmail?.toLowerCase());return pm||true;});
+  const myPortfolioProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>p.PMEmail?.toLowerCase()===myEmail?.toLowerCase()||p.PMName?.toLowerCase()===myEmp?.Name?.toLowerCase());
 
   // Reviews pre-filtered to this PM's properties in loadAll — VA_Activity has no PMEmail column
   const pendingReviews=(reviews||[]).filter(r=>(r.ActivityType==="Review"||r.ActivityType==="ReviewRequest")&&r.Status!=="Resolved");
-  const myActivityProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>{
-    const portfolio=data?.portfolios?.find(pf=>pf.PropertyId===p.Title||pf.PropertyId===p.id);
-    return portfolio&&data?.vas?.find(v=>v.Email?.toLowerCase()===portfolio.VAEmail?.toLowerCase());
-  });
+  const myActivityProps=role==="ar"||role==="admin"||role==="regional"?allProps:allProps.filter(p=>p.PMEmail?.toLowerCase()===myEmail?.toLowerCase()||p.PMName?.toLowerCase()===myEmp?.Name?.toLowerCase());
 
   const vaActivities=(data?.vaActivities||[]).filter(a=>{
     if(role==="ar")return a.AssignedByEmail?.toLowerCase()===myEmail?.toLowerCase();
