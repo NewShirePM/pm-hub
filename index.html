@@ -140,11 +140,11 @@ const catList=["Work Orders","Marketing","Resident Comms","Renewals","Inspection
 
 // Friendly labels for PMHubRole values used in role-based task assignment.
 // Unknown values fall back to Title-Cased raw value, so new roles still display.
-const roleLabels={pm:"Property Manager","pm-onsite":"Property Manager",apm:"Assistant Property Manager","pm-remote":"Remote PM",ar:"AR Specialist",maintenance:"Maintenance",admin:"Admin",regional:"Regional Manager"};
+const roleLabels={pm:"Property Manager (On-site)","pm-onsite":"Property Manager (On-site)","pm-remote":"Property Manager (Off-site)",apm:"Assistant Property Manager",ar:"AR Specialist",maintenance:"Maintenance",admin:"Admin",regional:"Regional Manager",denied:"No Access"};
 function roleLabel(r){const k=(r||"").trim().toLowerCase();return roleLabels[k]||k.replace(/\b\w/g,c=>c.toUpperCase());}
 // Roles always offered in the assignment picker, even before anyone holds them.
 // The picker merges these with any other PMHubRole values found on staff.
-const KNOWN_ROLES=["pm","apm","pm-remote","ar","maintenance","regional"];
+const KNOWN_ROLES=["pm-onsite","pm-remote","apm","ar","maintenance","regional"];
 
 // ============================================================
 // GRAPH API
@@ -1145,7 +1145,51 @@ function EditPanel({fields,setFields,allStaff,catList}){
   </div>;
 }
 
-function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,fl}){
+// ============================================================
+// TEAM ROLES — edit each employee's PMHubRole in-app
+// ============================================================
+// Roles assignable here. "regional" and "admin" grant full admin access;
+// "denied" blocks the app. Writes straight to the Employees list.
+const EDITOR_ROLES=["pm-onsite","pm-remote","apm","ar","maintenance","regional","admin","denied"];
+function TeamRolesCard({emps,onSetRole}){
+  const[q,setQ]=useState("");
+  const[savingId,setSavingId]=useState("");
+  const staff=(emps||[]).filter(e=>e.EmployeeActive!==false&&(e.Name||e.Email)).slice().sort((a,b)=>(a.Name||"").localeCompare(b.Name||""));
+  const shown=staff.filter(e=>!q||((e.Name||"")+" "+(e.Email||"")+" "+(e.JobTitle||"")).toLowerCase().includes(q.toLowerCase()));
+  async function change(emp,val){
+    if(val==="denied"&&!window.confirm(`Block ${emp.Name||emp.Email} from PM Hub? They will see "Access Denied" at next login.`))return;
+    setSavingId(emp.id);
+    try{await onSetRole(emp,val);}finally{setSavingId("");}
+  }
+  return<div style={S.card}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:8,gap:10,flexWrap:"wrap"}}>
+      <div>
+        <div style={S.cardT}>👥 Team Roles</div>
+        <div style={{fontSize:11,color:C.b4,marginTop:2}}>Set each person's role. Roles drive task assignment and what they see when they log in. Saves immediately.</div>
+      </div>
+      <input style={{...S.input,width:200,marginBottom:0}} placeholder="Search name or title…" value={q} onChange={e=>setQ(e.target.value)}/>
+    </div>
+    {!shown.length&&<div style={{textAlign:"center",padding:"14px 0",color:C.b3,fontSize:13,fontStyle:"italic"}}>No staff match.</div>}
+    {shown.map((emp,i)=>{
+      const cur=(emp.PMHubRole||"").trim().toLowerCase();
+      const known=EDITOR_ROLES.includes(cur);
+      const saving=savingId&&savingId===emp.id;
+      return<div key={emp.id||emp.Email||i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.b1}`}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.t7}}>{emp.Name||emp.Email}</div>
+          <div style={{fontSize:11,color:C.b4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.JobTitle||"—"}{emp.Email?` · ${emp.Email}`:""}</div>
+        </div>
+        <select style={{...S.select,width:230,marginBottom:0,opacity:saving?.5:1,borderColor:cur?C.b2:C.wn}} disabled={saving} value={cur||""} onChange={e=>change(emp,e.target.value)}>
+          <option value="" disabled>— Not set —</option>
+          {cur&&!known&&<option value={cur}>{roleLabel(cur)}</option>}
+          {EDITOR_ROLES.map(r=><option key={r} value={r}>{roleLabel(r)}</option>)}
+        </select>
+      </div>;
+    })}
+  </div>;
+}
+
+function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,onSetRole,fl}){
   const[editId,setEditId]=useState(null);
   const[editFields,setEditFields]=useState({});
   const[addOpen,setAddOpen]=useState(false);
@@ -1275,6 +1319,9 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
   const doneAdhoc=adhocTasks.filter(t=>getChoiceVal(t.Status)==="Completed"||getChoiceVal(t.Status)==="Missed");
 
   return<div style={S.content}>
+    {/* Team Roles */}
+    <TeamRolesCard emps={data?.emps||[]} onSetRole={onSetRole}/>
+
     {/* Recurring Task Management */}
     <div style={S.card}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:4}}>
@@ -1749,6 +1796,14 @@ function App(){
     }catch(e){fl("Error: "+e.message);}
   }
 
+  async function updateEmployeeRole(emp,newRole){
+    try{
+      const tk=await getToken();
+      await gPatch(tk,`${SITE}/lists/${CONFIG.listEmployees}/items/${emp.id}/fields`,{PMHubRole:newRole});
+      await loadAll();fl(`Role updated: ${emp.Name||emp.Email} → ${roleLabel(newRole)}`);
+    }catch(e){fl("Error updating role: "+e.message);}
+  }
+
   async function toggleAbsence(pm){
     try{
       const tk=await getToken();
@@ -2039,7 +2094,7 @@ function App(){
     {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={null} onComplete={completeTask} onNA={markNA} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} onToggleAbsence={toggleAbsence} fl={fl}/>}
     {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} onUpdateSession={updateSession} onDeleteSession={deleteSession} fl={fl}/>}
-    {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} fl={fl}/>}
+    {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} onSetRole={updateEmployeeRole} fl={fl}/>}
   </div>;
 }
 
