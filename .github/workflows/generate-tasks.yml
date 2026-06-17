@@ -1,0 +1,40 @@
+name: Generate daily PM tasks
+
+# Replaces the old Power Automate 6AM flow. Generates recurring PM Hub
+# tasks into the PM_Activity SharePoint list.
+#
+# Schedule note: GitHub cron is UTC and does NOT follow daylight saving.
+# 09:00 UTC = 4:00 AM EST / 5:00 AM EDT — comfortably before the workday
+# in South Carolina year-round. Adjust the hour below if you want it later.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   PMHUB_TENANT_ID, PMHUB_CLIENT_ID, PMHUB_CLIENT_SECRET
+# Optional: PMHUB_SITE_ID (defaults to the PM Hub site in the script).
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:        # lets you run it on demand from the Actions tab
+
+# Avoid overlapping runs if a manual run coincides with the schedule.
+concurrency:
+  group: generate-tasks
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Generate tasks
+        env:
+          PMHUB_TENANT_ID: ${{ secrets.PMHUB_TENANT_ID }}
+          PMHUB_CLIENT_ID: ${{ secrets.PMHUB_CLIENT_ID }}
+          PMHUB_CLIENT_SECRET: ${{ secrets.PMHUB_CLIENT_SECRET }}
+          PMHUB_SITE_ID: ${{ secrets.PMHUB_SITE_ID }}
+        run: node scripts/generate-tasks.mjs

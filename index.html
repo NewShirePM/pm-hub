@@ -140,8 +140,11 @@ const catList=["Work Orders","Marketing","Resident Comms","Renewals","Inspection
 
 // Friendly labels for PMHubRole values used in role-based task assignment.
 // Unknown values fall back to Title-Cased raw value, so new roles still display.
-const roleLabels={pm:"Property Manager","pm-onsite":"Property Manager","pm-remote":"Remote PM",ar:"AR Specialist",maintenance:"Maintenance",admin:"Admin",regional:"Regional Manager"};
+const roleLabels={pm:"Property Manager","pm-onsite":"Property Manager",apm:"Assistant Property Manager","pm-remote":"Remote PM",ar:"AR Specialist",maintenance:"Maintenance",admin:"Admin",regional:"Regional Manager"};
 function roleLabel(r){const k=(r||"").trim().toLowerCase();return roleLabels[k]||k.replace(/\b\w/g,c=>c.toUpperCase());}
+// Roles always offered in the assignment picker, even before anyone holds them.
+// The picker merges these with any other PMHubRole values found on staff.
+const KNOWN_ROLES=["pm","apm","pm-remote","ar","maintenance","regional"];
 
 // ============================================================
 // GRAPH API
@@ -182,8 +185,8 @@ function detectRole(emp,adminEmails,msalEmail){
 }
 
 // Helper — true for any PM variant
-function isAnyPM(role){return role==="pm"||role==="pm-onsite"||role==="pm-remote"||role==="maintenance";}
-function isOnsitePM(role){return role==="pm"||role==="pm-onsite";}
+function isAnyPM(role){return role==="pm"||role==="pm-onsite"||role==="pm-remote"||role==="apm"||role==="maintenance";}
+function isOnsitePM(role){return role==="pm"||role==="pm-onsite"||role==="apm";}
 function isRemotePM(role){return role==="pm-remote";}
 
 // ============================================================
@@ -1026,11 +1029,13 @@ function EditPanel({fields,setFields,allStaff,catList}){
   // Assignment mode: "all" (every PM), "role" (by PMHubRole), or "people" (hand-picked).
   // Infer from stored fields when not explicitly set yet.
   const mode=fields.assignMode||(fields.appliesToAll?"all":((fields.appliesToRoles||[]).length?"role":"people"));
-  // Build the assignable role list from PMHubRole values actually present on staff.
+  // Assignable roles = the known set (always shown) merged with any other
+  // PMHubRole values present on staff. Count = how many active staff hold it.
   const roleList=(()=>{
     const m={};
     (allStaff||[]).forEach(e=>{const r=(e.PMHubRole||"").trim().toLowerCase();if(r&&r!=="denied")m[r]=(m[r]||0)+1;});
-    return Object.keys(m).sort().map(r=>({value:r,label:roleLabel(r),count:m[r]}));
+    const values=[...new Set([...KNOWN_ROLES,...Object.keys(m)])];
+    return values.map(r=>({value:r,label:roleLabel(r),count:m[r]||0})).sort((a,b)=>a.label.localeCompare(b.label));
   })();
   const setMode=k=>setFields(p=>({...p,assignMode:k,appliesToAll:k==="all",
     appliesToRoles:k==="role"?(p.appliesToRoles||[]):[],
@@ -1421,9 +1426,9 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
     const appliesToRoles=(def.AppliesToRoles||"").split(",").map(r=>r.trim().toLowerCase()).filter(Boolean);
     const appliesToEmails=(def.AppliesToEmails||"").split(",").map(e=>e.trim().toLowerCase()).filter(Boolean);
     const legacyEmail=(def.AppliesToEmail||"").toLowerCase();
-    // AppliesToAll = only actual PMs, not AR/Regional/Admin/Maintenance
+    // AppliesToAll = only actual PMs (incl. assistant PMs), not AR/Regional/Admin/Maintenance
     // Those roles get tasks via explicit role or email assignment only
-    const pmRoles=["pm","pm-onsite","pm-remote"];
+    const pmRoles=["pm","pm-onsite","pm-remote","apm"];
     const myRole=myEmp?.PMHubRole?.toLowerCase()||"";
     const isForMe=(appliesToAll&&pmRoles.includes(myRole))||
       (appliesToRoles.length>0&&appliesToRoles.includes(myRole))||
@@ -1675,7 +1680,7 @@ function App(){
       setData(newData);
 
       // Generate missing tasks for current user (safety net)
-      if(userRole==="pm"||userRole==="ar"||userRole==="admin"){
+      if(isAnyPM(userRole)||userRole==="ar"||userRole==="admin"){
         const myActivity=activity.filter(a=>a.PMEmail?.toLowerCase()===myEmail);
         // Client-side generation disabled — use Generate-TodaysTasks.ps1 instead
         // await generateMissingTasks(tk,recurringDefs,myActivity,myEmail,me);
