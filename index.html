@@ -204,6 +204,10 @@ function Badge({type="neutral",children,dot=false}){
   </span>;
 }
 
+// Form field wrapper — module scope so it stays a stable component type
+// (defining it inside a render function remounts inputs and steals focus).
+function RField({label,children}){return<div style={{marginBottom:8}}><label style={S.label}>{label}</label>{children}</div>;}
+
 function KPI({label,value,color,sub}){
   return<div style={S.kpi}>
     <div style={S.kpiL}>{label}</div>
@@ -1271,9 +1275,6 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
   const inputS={...S.input,marginBottom:0};
   const selS={...S.select,marginBottom:0};
-  const fgS={marginBottom:8};
-
-  function RField({label,children}){return<div style={fgS}><label style={S.label}>{label}</label>{children}</div>;}
 
 
   // Group recurring defs by cadence+assignee
@@ -1349,13 +1350,13 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         </div>
       </div>}
       {/* Group by cadence */}
-      <RecGroup label="Daily" items={daily}/>
-      <RecGroup label="Bi-Weekly" items={biweeklyRec}/>
-      <RecGroup label="Weekly" items={weekly}/>
-      <RecGroup label="Bi-Monthly" items={bimonthlyRec}/>
-      <RecGroup label="Monthly" items={monthly}/>
-      <RecGroup label="Quarterly" items={quarterlyRec}/>
-      <RecGroup label="Ad-Hoc / One-Off" items={adhocRec}/>
+      {RecGroup({label:"Daily",items:daily})}
+      {RecGroup({label:"Bi-Weekly",items:biweeklyRec})}
+      {RecGroup({label:"Weekly",items:weekly})}
+      {RecGroup({label:"Bi-Monthly",items:bimonthlyRec})}
+      {RecGroup({label:"Monthly",items:monthly})}
+      {RecGroup({label:"Quarterly",items:quarterlyRec})}
+      {RecGroup({label:"Ad-Hoc / One-Off",items:adhocRec})}
     </div>
 
     {/* Close Day */}
