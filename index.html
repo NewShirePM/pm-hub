@@ -897,6 +897,7 @@ function RegionalView({data,allTasks,queue,dfFrom,dfTo,setDfFrom,setDfTo,onToggl
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         {pms.filter(p=>p.PMTrackerStatus==="Out").map(p=><div key={p.Email} style={{display:"flex",alignItems:"center",gap:6,background:C.white,border:`1px solid ${C.er}`,borderRadius:4,padding:"4px 10px"}}>
           <span style={{fontSize:12,fontWeight:600,color:C.er}}>{p.Name}</span>
+          {p.OutSince&&<span style={{fontSize:10,color:C.b4}}>out since {fD(p.OutSince)}</span>}
           <button style={{...S.btn(C.ok),...S.xs}} onClick={()=>onToggleAbsence&&onToggleAbsence(p)}>Mark In</button>
         </div>)}
       </div>
@@ -1547,6 +1548,9 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
     if(exists)continue;
 
     const dueDate=computeDueDate(def,cad,now,dow);
+    // Auto-excuse: tasks generated while the person is Out are born "Not
+    // Applicable" so out-days never count as Missed.
+    const meOut=(myEmp?.PMTrackerStatus||"")==="Out";
     toCreate.push({
       Title:def.Description?.slice(0,255)||"Checklist Task",
       ActivityType:"Checklist",
@@ -1555,7 +1559,7 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
       PMName:myEmp?.Name||myEmail,
       Category:def.Category||"Admin/Other",
       Cadence:cad,
-      Status:"Queued",
+      Status:meOut?"Not Applicable":"Queued",
       Priority:getChoiceVal(def.Priority)||def.Priority||"Normal",
       Description:def.Description||"",
       ContextNotes:def.ContextNotes||"",
@@ -1824,15 +1828,20 @@ function App(){
       const tk=await getToken();
       const isOut=pm.PMTrackerStatus==="Out";
       const newStatus=isOut?"Active":"Out";
-      await gPatch(tk,`${SITE}/lists/${CONFIG.listEmployees}/items/${pm.id}/fields`,{PMTrackerStatus:newStatus});
+      const nowIso=new Date().toISOString();
+      // Stamp the absence dates: OutSince when going Out, OutUntil on return.
+      const empPatch={PMTrackerStatus:newStatus};
+      if(newStatus==="Out")empPatch.OutSince=nowIso; else empPatch.OutUntil=nowIso;
+      await gPatch(tk,`${SITE}/lists/${CONFIG.listEmployees}/items/${pm.id}/fields`,empPatch);
       if(!isOut){
-        // Mark Out: flag their Queued tasks as coverage and push to help queue
-        const pmTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getChoiceVal(a.Status)==="Queued");
+        // Mark Out: excuse their open tasks (so out-days aren't penalized) and
+        // post coverage to the Help Queue so the work still gets picked up.
+        const pmTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===pm.Email?.toLowerCase()&&(getChoiceVal(a.Status)==="Queued"||getChoiceVal(a.Status)==="In Progress"));
         for(const task of pmTasks){
-          await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name});
-          await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Coverage: ${task.Description||task.Title}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:pm.Email,RequestingPMName:pm.Name,Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name,Notes:`Auto-generated: ${pm.Name} is marked Out`,CreatedAt:new Date().toISOString()});
+          await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{Status:"Not Applicable",CompletedAt:nowIso,IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name});
+          await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Coverage: ${task.Description||task.Title}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:pm.Email,RequestingPMName:pm.Name,Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name,Notes:`Auto-generated: ${pm.Name} is marked Out`,CreatedAt:nowIso});
         }
-        fl(`${pm.Name} marked Out — ${pmTasks.length} tasks sent to Help Queue`);
+        fl(`${pm.Name} marked Out — ${pmTasks.length} tasks excused & sent to Help Queue`);
       } else {
         // Mark In: remove coverage flag from their unclaimed tasks
         const coverageTasks=(data?.activity||[]).filter(a=>a.CoverageForEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getChoiceVal(a.Status)==="Queued");

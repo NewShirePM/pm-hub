@@ -197,7 +197,7 @@ async function main() {
 
   console.log(`Loaded ${defs.length} recurring defs, ${staff.length} active staff, ${activity.length} activity rows.`);
 
-  let created = 0, skippedExisting = 0, failed = 0;
+  let created = 0, excused = 0, skippedExisting = 0, failed = 0;
   const activeDefs = defs.filter(d => d.IsActive !== false);
 
   for (const def of activeDefs) {
@@ -230,6 +230,9 @@ async function main() {
       });
       if (exists) { skippedExisting++; continue; }
 
+      // Auto-excuse: if the person is marked Out, the task is born "Not
+      // Applicable" so it never counts as Missed on a day they're away.
+      const isOut = (emp.PMTrackerStatus || "") === "Out";
       const fields = {
         Title: def.Description?.slice(0, 255) || "Checklist Task",
         ActivityType: "Checklist",
@@ -238,7 +241,7 @@ async function main() {
         PMName: emp.Name || emp.Email,
         Category: def.Category || "Admin/Other",
         Cadence: cad,
-        Status: "Queued",
+        Status: isOut ? "Not Applicable" : "Queued",
         Priority: getChoiceVal(def.Priority) || def.Priority || "Normal",
         Description: def.Description || "",
         ContextNotes: def.ContextNotes || "",
@@ -256,6 +259,7 @@ async function main() {
       try {
         await gPost(token, lUrl(L.activity), fields);
         created++;
+        if (isOut) excused++;
       } catch (e) {
         failed++;
         console.warn(`Create failed for "${def.Description}": ${e.message}`);
@@ -263,7 +267,7 @@ async function main() {
     }
   }
 
-  console.log(`Done. Created ${created}, skipped ${skippedExisting} already-existing, ${failed} failed.`);
+  console.log(`Done. Created ${created} (${excused} auto-excused for Out staff), skipped ${skippedExisting} already-existing, ${failed} failed.`);
   if (failed > 0) process.exit(1);
 }
 
