@@ -40,7 +40,9 @@ const L = {
 const lUrl = name => `${SITE}/lists/${name}/items`;
 
 // Roles that count as "all PMs" for AppliesToAll tasks (mirrors index.html).
-const PM_ROLES = ["pm", "pm-onsite", "pm-remote", "apm"];
+const PM_ROLES = ["pm-onsite", "pm-remote", "apm"];
+// Collapse the legacy "pm" value into "pm-onsite" (mirrors index.html normRole).
+const normRole = r => { const k = (r || "").trim().toLowerCase(); return k === "pm" ? "pm-onsite" : k; };
 
 // ---------- auth ----------
 async function getToken() {
@@ -156,12 +158,12 @@ function shouldGenerateToday(def, cad, ctx) {
 // Resolve which active employees a recurring def applies to.
 function resolveRecipients(def, staff) {
   const appliesToAll = def.AppliesToAll === true || def.AppliesToAll === "true" || def.AppliesToAll === 1;
-  const roles = (def.AppliesToRoles || "").split(",").map(r => r.trim().toLowerCase()).filter(Boolean);
+  const roles = (def.AppliesToRoles || "").split(",").map(normRole).filter(Boolean);
   const emails = (def.AppliesToEmails || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
   const legacy = (def.AppliesToEmail || "").toLowerCase();
 
   return staff.filter(e => {
-    const role = (e.PMHubRole || "").trim().toLowerCase();
+    const role = normRole(e.PMHubRole);
     const email = (e.Email || "").toLowerCase();
     if (appliesToAll && PM_ROLES.includes(role)) return true;
     if (roles.length && roles.includes(role)) return true;

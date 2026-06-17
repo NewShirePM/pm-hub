@@ -142,6 +142,9 @@ const catList=["Work Orders","Marketing","Resident Comms","Renewals","Inspection
 // Unknown values fall back to Title-Cased raw value, so new roles still display.
 const roleLabels={pm:"Property Manager (On-site)","pm-onsite":"Property Manager (On-site)","pm-remote":"Property Manager (Off-site)",apm:"Assistant Property Manager",ar:"AR Specialist",maintenance:"Maintenance",admin:"Admin",regional:"Regional Manager",denied:"No Access"};
 function roleLabel(r){const k=(r||"").trim().toLowerCase();return roleLabels[k]||k.replace(/\b\w/g,c=>c.toUpperCase());}
+// Collapse the legacy "pm" value into "pm-onsite" so it doesn't show as a
+// duplicate "Property Manager (On-site)" alongside the real pm-onsite role.
+function normRole(r){const k=(r||"").trim().toLowerCase();return k==="pm"?"pm-onsite":k;}
 // Roles always offered in the assignment picker, even before anyone holds them.
 // The picker merges these with any other PMHubRole values found on staff.
 const KNOWN_ROLES=["pm-onsite","pm-remote","apm","ar","maintenance","regional"];
@@ -1033,7 +1036,7 @@ function EditPanel({fields,setFields,allStaff,catList}){
   // PMHubRole values present on staff. Count = how many active staff hold it.
   const roleList=(()=>{
     const m={};
-    (allStaff||[]).forEach(e=>{const r=(e.PMHubRole||"").trim().toLowerCase();if(r&&r!=="denied")m[r]=(m[r]||0)+1;});
+    (allStaff||[]).forEach(e=>{const r=normRole(e.PMHubRole);if(r&&r!=="denied")m[r]=(m[r]||0)+1;});
     const values=[...new Set([...KNOWN_ROLES,...Object.keys(m)])];
     return values.map(r=>({value:r,label:roleLabel(r),count:m[r]||0})).sort((a,b)=>a.label.localeCompare(b.label));
   })();
@@ -1171,7 +1174,7 @@ function TeamRolesCard({emps,onSetRole}){
     </div>
     {!shown.length&&<div style={{textAlign:"center",padding:"14px 0",color:C.b3,fontSize:13,fontStyle:"italic"}}>No staff match.</div>}
     {shown.map((emp,i)=>{
-      const cur=(emp.PMHubRole||"").trim().toLowerCase();
+      const cur=normRole(emp.PMHubRole);
       const known=EDITOR_ROLES.includes(cur);
       const saving=savingId&&savingId===emp.id;
       return<div key={emp.id||emp.Email||i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.b1}`}}>
@@ -1470,13 +1473,13 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
 
     // Person-based assignment check
     const appliesToAll=def.AppliesToAll===true||def.AppliesToAll==="true"||def.AppliesToAll===1;
-    const appliesToRoles=(def.AppliesToRoles||"").split(",").map(r=>r.trim().toLowerCase()).filter(Boolean);
+    const appliesToRoles=(def.AppliesToRoles||"").split(",").map(r=>normRole(r)).filter(Boolean);
     const appliesToEmails=(def.AppliesToEmails||"").split(",").map(e=>e.trim().toLowerCase()).filter(Boolean);
     const legacyEmail=(def.AppliesToEmail||"").toLowerCase();
     // AppliesToAll = only actual PMs (incl. assistant PMs), not AR/Regional/Admin/Maintenance
     // Those roles get tasks via explicit role or email assignment only
-    const pmRoles=["pm","pm-onsite","pm-remote","apm"];
-    const myRole=myEmp?.PMHubRole?.toLowerCase()||"";
+    const pmRoles=["pm-onsite","pm-remote","apm"];
+    const myRole=normRole(myEmp?.PMHubRole);
     const isForMe=(appliesToAll&&pmRoles.includes(myRole))||
       (appliesToRoles.length>0&&appliesToRoles.includes(myRole))||
       appliesToEmails.includes(myEmail?.toLowerCase())||
