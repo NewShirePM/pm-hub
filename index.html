@@ -1193,6 +1193,7 @@ function TeamRolesCard({emps,onSetRole}){
 }
 
 function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,onSetRole,fl}){
+  const[adminTab,setAdminTab]=useState("recurring"); // recurring | adhoc | team
   const[editId,setEditId]=useState(null);
   const[editFields,setEditFields]=useState({});
   const[addOpen,setAddOpen]=useState(false);
@@ -1322,9 +1323,16 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
   const doneAdhoc=adhocTasks.filter(t=>getChoiceVal(t.Status)==="Completed"||getChoiceVal(t.Status)==="Missed");
 
   return<div style={S.content}>
-    {/* Team Roles */}
-    <TeamRolesCard emps={data?.emps||[]} onSetRole={onSetRole}/>
+    {/* Admin sub-tabs */}
+    <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+      {[{k:"recurring",l:"📋 Recurring Tasks"},{k:"adhoc",l:"📌 Ad-Hoc Tasks"},{k:"team",l:"👥 Team Roles"}].map(o=>(
+        <button key={o.k} onClick={()=>setAdminTab(o.k)} style={{...S.btnO(adminTab===o.k?C.t7:C.b4,adminTab===o.k?C.t4:C.b2),...S.sm,background:adminTab===o.k?C.t1:C.wh,fontWeight:adminTab===o.k?700:500}}>{o.l}</button>
+      ))}
+    </div>
 
+    {adminTab==="team"&&<TeamRolesCard emps={data?.emps||[]} onSetRole={onSetRole}/>}
+
+    {adminTab==="recurring"&&<>
     {/* Recurring Task Management */}
     <div style={S.card}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:4}}>
@@ -1350,6 +1358,19 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
       <RecGroup label="Ad-Hoc / One-Off" items={adhocRec}/>
     </div>
 
+    {/* Close Day */}
+    <div style={{...S.card,borderLeft:`3px solid ${C.wn}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:600,color:C.t7}}>🔄 Close Day</div>
+          <div style={{fontSize:12,color:C.b4,marginTop:3}}>Marks all remaining Queued and In Progress daily tasks as Missed. Resolves open Help Queue items.</div>
+        </div>
+        <button style={{...S.btn(C.g5,C.dk)}} onClick={()=>{if(window.confirm("Close the day? All remaining daily tasks will be marked Missed."))fl("Close Day executed — pending daily tasks marked Missed");}}>Close Day</button>
+      </div>
+    </div>
+    </>}
+
+    {adminTab==="adhoc"&&<>
     {/* Assign Ad-Hoc Task */}
     <div style={{...S.card,borderLeft:`3px solid ${C.g5}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:`1px solid ${C.b1}`,marginBottom:12}}>
@@ -1436,17 +1457,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
         </div>)}
       </div>}
     </div>
-
-    {/* Close Day */}
-    <div style={{...S.card,borderLeft:`3px solid ${C.wn}`}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <div style={{fontSize:15,fontWeight:600,color:C.t7}}>🔄 Close Day</div>
-          <div style={{fontSize:12,color:C.b4,marginTop:3}}>Marks all remaining Queued and In Progress daily tasks as Missed. Resolves open Help Queue items.</div>
-        </div>
-        <button style={{...S.btn(C.g5,C.dk)}} onClick={()=>{if(window.confirm("Close the day? All remaining daily tasks will be marked Missed."))fl("Close Day executed — pending daily tasks marked Missed");}}>Close Day</button>
-      </div>
-    </div>
+    </>}
   </div>;
 }
 
