@@ -138,6 +138,11 @@ function periodKey(cadence,dayOfWeek,dayOfMonth){
 const catIcon={"Work Orders":"🔧","Marketing":"📢","Resident Comms":"💬","Renewals":"📝","Inspections":"🔍","Owner Relations":"🏠","Accounts":"💰","Admin/Other":"📋","Leasing":"🔑","Reporting":"📊"};
 const catList=["Work Orders","Marketing","Resident Comms","Renewals","Inspections","Owner Relations","Accounts","Admin/Other","Leasing","Reporting"];
 
+// Friendly labels for PMHubRole values used in role-based task assignment.
+// Unknown values fall back to Title-Cased raw value, so new roles still display.
+const roleLabels={pm:"Property Manager","pm-onsite":"Property Manager","pm-remote":"Remote PM",ar:"AR Specialist",maintenance:"Maintenance",admin:"Admin",regional:"Regional Manager"};
+function roleLabel(r){const k=(r||"").trim().toLowerCase();return roleLabels[k]||k.replace(/\b\w/g,c=>c.toUpperCase());}
+
 // ============================================================
 // GRAPH API
 // ============================================================
@@ -1018,6 +1023,18 @@ function EditPanel({fields,setFields,allStaff,catList}){
   const days=["Monday","Tuesday","Wednesday","Thursday","Friday"];
   const i0={...S.input,marginBottom:0};
   const s0={...S.select,marginBottom:0};
+  // Assignment mode: "all" (every PM), "role" (by PMHubRole), or "people" (hand-picked).
+  // Infer from stored fields when not explicitly set yet.
+  const mode=fields.assignMode||(fields.appliesToAll?"all":((fields.appliesToRoles||[]).length?"role":"people"));
+  // Build the assignable role list from PMHubRole values actually present on staff.
+  const roleList=(()=>{
+    const m={};
+    (allStaff||[]).forEach(e=>{const r=(e.PMHubRole||"").trim().toLowerCase();if(r&&r!=="denied")m[r]=(m[r]||0)+1;});
+    return Object.keys(m).sort().map(r=>({value:r,label:roleLabel(r),count:m[r]}));
+  })();
+  const setMode=k=>setFields(p=>({...p,assignMode:k,appliesToAll:k==="all",
+    appliesToRoles:k==="role"?(p.appliesToRoles||[]):[],
+    appliesToEmails:k==="people"?(p.appliesToEmails||[]):[]}));
   return <div style={{background:C.t0,border:"1px solid "+C.t1,borderRadius:6,padding:14,marginTop:8}}>
     <div style={{marginBottom:8}}>
       <label style={S.label}>Description *</label>
@@ -1079,20 +1096,35 @@ function EditPanel({fields,setFields,allStaff,catList}){
     </div>}
     <div style={{marginBottom:8}}>
       <label style={S.label}>Assign To</label>
-      <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,fontSize:13,cursor:"pointer"}}>
-        <input type="checkbox" checked={!!fields.appliesToAll} onChange={e=>setFields(p=>({...p,appliesToAll:e.target.checked,appliesToEmails:[]}))}/>
-        Assign to Everyone (all PMs)
-      </label>
-      {!fields.appliesToAll&&<div style={{border:"1px solid "+C.b2,borderRadius:4,padding:"6px 8px",maxHeight:130,overflowY:"auto",display:"flex",flexWrap:"wrap",gap:4}}>
+      <div style={{display:"flex",gap:6,marginBottom:8}}>
+        {[{k:"all",t:"Everyone (all PMs)"},{k:"role",t:"By role"},{k:"people",t:"Specific people"}].map(o=>(
+          <button key={o.k} type="button" onClick={()=>setMode(o.k)} style={{...S.btnO(mode===o.k?C.t7:C.b4,mode===o.k?C.t4:C.b2),...S.sm,flex:1,background:mode===o.k?C.t1:C.wh,fontWeight:mode===o.k?700:500}}>{o.t}</button>
+        ))}
+      </div>
+      {mode==="role"&&<div style={{border:"1px solid "+C.b2,borderRadius:4,padding:8,display:"flex",flexWrap:"wrap",gap:6}}>
+        {!roleList.length&&<div style={{fontSize:12,color:C.b4}}>No roles found on staff records.</div>}
+        {roleList.map(r=>{
+          const chk=(fields.appliesToRoles||[]).includes(r.value);
+          return <label key={r.value} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"4px 10px",borderRadius:99,background:chk?C.t1:C.wh,border:"1px solid "+(chk?C.t4:C.b2),fontWeight:chk?700:400}}>
+            <input type="checkbox" style={{display:"none"}} checked={chk} onChange={()=>{
+              const cur=fields.appliesToRoles||[];
+              setFields(p=>({...p,appliesToRoles:cur.includes(r.value)?cur.filter(x=>x!==r.value):[...cur,r.value]}));
+            }}/>
+            {r.label} ({r.count}){chk?" ✓":""}
+          </label>;
+        })}
+      </div>}
+      {mode==="role"&&<div style={{fontSize:11,color:C.b4,marginTop:4}}>Anyone with a selected role automatically gets this task — including new hires added to that role later.</div>}
+      {mode==="people"&&<div style={{border:"1px solid "+C.b2,borderRadius:4,padding:"6px 8px",maxHeight:130,overflowY:"auto",display:"flex",flexWrap:"wrap",gap:4}}>
         {(allStaff||[]).map(emp=>{
           const em=(emp.Email||"").toLowerCase();
           const chk=(fields.appliesToEmails||[]).includes(em);
-          return <label key={em} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"2px 6px",borderRadius:99,background:chk?C.t1:C.b0,border:"1px solid "+(chk?C.t2:C.b1),fontWeight:chk?600:400}}>
+          return <label key={em} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",padding:"2px 6px",borderRadius:99,background:chk?C.t1:C.wh,border:"1px solid "+(chk?C.t4:C.b1),fontWeight:chk?600:400}}>
             <input type="checkbox" style={{display:"none"}} checked={chk} onChange={()=>{
               const cur=fields.appliesToEmails||[];
               setFields(p=>({...p,appliesToEmails:cur.includes(em)?cur.filter(e=>e!==em):[...cur,em]}));
             }}/>
-            {emp.Name}{chk?" [x]":""}
+            {emp.Name}{chk?" ✓":""}
           </label>;
         })}
       </div>}
@@ -1113,7 +1145,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
   const[editFields,setEditFields]=useState({});
   const[addOpen,setAddOpen]=useState(false);
   const[adhocOpen,setAdhocOpen]=useState(false);
-  const[newRec,setNewRec]=useState({desc:"",appliesTo:"All PMs",cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:2,dayOfMonth:1,dueDayOfMonth:5});
+  const[newRec,setNewRec]=useState({desc:"",assignMode:"role",appliesToAll:false,appliesToRoles:[],appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:2,dayOfMonth:1,dueDayOfMonth:5});
   const[newAdhoc,setNewAdhoc]=useState({desc:"",assignedTo:"",category:"Admin/Other",priority:"Normal",propertyId:"",dueDate:"",contextNotes:""});
   const[adhocEditId,setAdhocEditId]=useState(null);
   const[adhocEditFields,setAdhocEditFields]=useState({});
@@ -1129,13 +1161,19 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
   function startEdit(rec){
     setEditId(rec.id);
     const existingEmails=rec.AppliesToEmails?rec.AppliesToEmails.split(',').map(e=>e.trim()).filter(Boolean):(rec.AppliesToEmail?[rec.AppliesToEmail]:[]);
-    setEditFields({desc:rec.Description||"",appliesToAll:rec.AppliesToAll||(!existingEmails.length&&!rec.AppliesToEmails),appliesToEmails:existingEmails,cadence:getChoiceVal(rec.Cadence)||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5,biWeeklyStartDate:rec.BiWeeklyStartDate?.slice(0,10)||today(),dueMonthCycle:rec.DueMonthCycle??1,dueMonthOfQuarter:rec.DueMonthOfQuarter??1});
+    const existingRoles=rec.AppliesToRoles?rec.AppliesToRoles.split(',').map(r=>r.trim().toLowerCase()).filter(Boolean):[];
+    const assignMode=rec.AppliesToAll?"all":(existingRoles.length?"role":(existingEmails.length?"people":"all"));
+    setEditFields({desc:rec.Description||"",assignMode,appliesToRoles:existingRoles,appliesToAll:assignMode==="all",appliesToEmails:existingEmails,cadence:getChoiceVal(rec.Cadence)||"Daily",category:rec.Category||"",priority:getChoiceVal(rec.Priority)||"Normal",contextNotes:rec.ContextNotes||"",adminNotes:rec.AdminNotes||"",onTimeCutoff:rec.OnTimeCutoff||"17:00",dayOfWeek:rec.DayOfWeek??0,dueDayOfWeek:rec.DueDayOfWeek??2,dayOfMonth:rec.DayOfMonth??1,dueDayOfMonth:rec.DueDayOfMonth??5,biWeeklyStartDate:rec.BiWeeklyStartDate?.slice(0,10)||today(),dueMonthCycle:rec.DueMonthCycle??1,dueMonthOfQuarter:rec.DueMonthOfQuarter??1});
   }
 
   function saveEdit(rec){
+    const mode=editFields.assignMode||(editFields.appliesToAll?"all":((editFields.appliesToRoles||[]).length?"role":"people"));
+    if(mode==="role"&&!(editFields.appliesToRoles||[]).length){fl("Select at least one role");return;}
+    if(mode==="people"&&!(editFields.appliesToEmails||[]).length){fl("Select at least one person");return;}
     const saveFields={...editFields,
-      AppliesToAll:editFields.appliesToAll||false,
-      AppliesToEmails:editFields.appliesToAll?"":(editFields.appliesToEmails||[]).join(","),
+      AppliesToAll:mode==="all",
+      AppliesToRoles:mode==="role"?(editFields.appliesToRoles||[]).join(","):"",
+      AppliesToEmails:mode==="people"?(editFields.appliesToEmails||[]).join(","):"",
       BiWeeklyStartDate:editFields.biWeeklyStartDate||null,
       DueMonthCycle:editFields.dueMonthCycle||null,
       DueMonthOfQuarter:editFields.dueMonthOfQuarter||null,
@@ -1147,10 +1185,16 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
 
    function submitNewRec(){
     if(!newRec.desc?.trim()||!newRec.category){fl("Description and Category are required");return;}
-    if(!newRec.appliesToAll&&(!newRec.appliesToEmails||!newRec.appliesToEmails.length)){fl("Select at least one person or choose Assign to Everyone");return;}
-    onAddRec&&onAddRec({...newRec,AppliesToAll:newRec.appliesToAll||false,AppliesToEmails:newRec.appliesToAll?"":(newRec.appliesToEmails||[]).join(","),BiWeeklyStartDate:newRec.biWeeklyStartDate||null,DueMonthCycle:newRec.dueMonthCycle||null,DueMonthOfQuarter:newRec.dueMonthOfQuarter||null});
+    const mode=newRec.assignMode||(newRec.appliesToAll?"all":((newRec.appliesToRoles||[]).length?"role":"people"));
+    if(mode==="role"&&!(newRec.appliesToRoles||[]).length){fl("Select at least one role");return;}
+    if(mode==="people"&&!(newRec.appliesToEmails||[]).length){fl("Select at least one person");return;}
+    onAddRec&&onAddRec({...newRec,
+      AppliesToAll:mode==="all",
+      AppliesToRoles:mode==="role"?(newRec.appliesToRoles||[]).join(","):"",
+      AppliesToEmails:mode==="people"?(newRec.appliesToEmails||[]).join(","):"",
+      BiWeeklyStartDate:newRec.biWeeklyStartDate||null,DueMonthCycle:newRec.dueMonthCycle||null,DueMonthOfQuarter:newRec.dueMonthOfQuarter||null});
     setAddOpen(false);
-    setNewRec({desc:"",appliesToAll:true,appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
+    setNewRec({desc:"",assignMode:"role",appliesToAll:false,appliesToRoles:[],appliesToEmails:[],cadence:"Daily",category:"Admin/Other",priority:"Normal",contextNotes:"",adminNotes:"",onTimeCutoff:"17:00",dayOfWeek:0,dueDayOfWeek:1,dayOfMonth:1,dueDayOfMonth:1,biWeeklyStartDate:today(),dueMonthCycle:1,dueMonthOfQuarter:1});
   }
 
   function submitAdhoc(){
@@ -1194,7 +1238,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
       <div style={{fontSize:11,fontWeight:700,color:C.t6,textTransform:"uppercase",letterSpacing:".05em",margin:"14px 0 6px",paddingBottom:4,borderBottom:`1px solid ${C.t1}`}}>{label}</div>
       {items.map((rec,i)=>{
         const isEditing=editId===rec.id;
-        const assignedLabel=rec.AppliesToAll?"Everyone":(rec.AppliesToEmails?(rec.AppliesToEmails.split(",").map(e=>{const s=allStaff.find(p=>p.Email?.toLowerCase()===e.trim().toLowerCase());return s?s.Name.split(" ")[0]:e;}).filter(Boolean).join(", ")||"?"):(rec.AppliesToEmail||"?"));
+        const assignedLabel=rec.AppliesToAll?"Everyone (all PMs)":(rec.AppliesToRoles?("Role: "+rec.AppliesToRoles.split(",").map(r=>roleLabel(r)).filter(Boolean).join(", ")):(rec.AppliesToEmails?(rec.AppliesToEmails.split(",").map(e=>{const s=allStaff.find(p=>p.Email?.toLowerCase()===e.trim().toLowerCase());return s?s.Name.split(" ")[0]:e;}).filter(Boolean).join(", ")||"?"):(rec.AppliesToEmail||"?")));
         const cad=getCadence(rec.Cadence)||"Daily";
         const sub=`${assignedLabel} · ${cad}`+(cad==="Weekly"?` · ${days[(rec.DueDayOfWeek??1)-1]||"Mon"}`:"")+(cad==="Bi-Weekly"?` · starts ${rec.BiWeeklyStartDate?.slice(0,10)||"?"}`:"")+(cad==="Bi-Monthly"?` · Cycle ${rec.DueMonthCycle===2?"B":"A"} · day ${rec.DueDayOfMonth||1}`:"")+((cad==="Monthly"||cad==="Quarterly")?` · day ${rec.DueDayOfMonth||1}`:"")+(cad==="Quarterly"?` · month ${rec.DueMonthOfQuarter||1} of qtr`:"");
         return<div key={rec.id||i} style={{borderBottom:`1px solid ${C.b1}`}}>
@@ -1374,15 +1418,17 @@ async function generateMissingTasks(token,recurringDefs,existingActivity,myEmail
 
     // Person-based assignment check
     const appliesToAll=def.AppliesToAll===true||def.AppliesToAll==="true"||def.AppliesToAll===1;
+    const appliesToRoles=(def.AppliesToRoles||"").split(",").map(r=>r.trim().toLowerCase()).filter(Boolean);
     const appliesToEmails=(def.AppliesToEmails||"").split(",").map(e=>e.trim().toLowerCase()).filter(Boolean);
     const legacyEmail=(def.AppliesToEmail||"").toLowerCase();
     // AppliesToAll = only actual PMs, not AR/Regional/Admin/Maintenance
-    // Those roles get tasks via explicit email assignment only
+    // Those roles get tasks via explicit role or email assignment only
     const pmRoles=["pm","pm-onsite","pm-remote"];
     const myRole=myEmp?.PMHubRole?.toLowerCase()||"";
     const isForMe=(appliesToAll&&pmRoles.includes(myRole))||
+      (appliesToRoles.length>0&&appliesToRoles.includes(myRole))||
       appliesToEmails.includes(myEmail?.toLowerCase())||
-      (!appliesToAll&&appliesToEmails.length===0&&legacyEmail===myEmail?.toLowerCase());
+      (!appliesToAll&&appliesToRoles.length===0&&appliesToEmails.length===0&&legacyEmail===myEmail?.toLowerCase());
     if(!isForMe)continue;
 
     // Cadence day check
@@ -1789,8 +1835,9 @@ function App(){
       if(fields.dueDayOfMonth!==undefined)patch.DueDayOfMonth=fields.dueDayOfMonth;
       if(fields.desc!==undefined)patch.Description=fields.desc;
       if(fields.cadence!==undefined)patch.Cadence=fields.cadence;
-      // New person-based assignment fields
+      // Assignment fields — everyone / by role / specific people
       if(fields.AppliesToAll!==undefined)patch.AppliesToAll=fields.AppliesToAll;
+      if(fields.AppliesToRoles!==undefined)patch.AppliesToRoles=fields.AppliesToRoles;
       if(fields.AppliesToEmails!==undefined)patch.AppliesToEmails=fields.AppliesToEmails;
       // New cadence fields
       if(fields.BiWeeklyStartDate!==undefined)patch.BiWeeklyStartDate=fields.BiWeeklyStartDate;
@@ -1808,6 +1855,7 @@ function App(){
         Title:`RT-${uid()}`,
         Description:fields.desc,
         AppliesToAll:fields.AppliesToAll||false,
+        AppliesToRoles:fields.AppliesToRoles||"",
         AppliesToEmails:fields.AppliesToEmails||"",
         Category:fields.category,
         Cadence:fields.cadence,
