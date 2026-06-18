@@ -157,10 +157,15 @@ const iUrl=(name,id)=>`${SITE}/lists/${name}/items/${id}/fields`;
 
 async function gGet(token,url){const r=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});if(!r.ok)throw new Error(`GET ${r.status}: ${url}`);return r.json();}
 async function gAll(token,url){let a=[],n=url;while(n){const d=await gGet(token,n);a=a.concat(d.value||[]);n=d["@odata.nextLink"]||null;}return a;}
+// Like gAll but stops once `cap` items are collected — bounds the load on
+// lists that grow forever (PM_Activity/VA_Activity). Pair with $orderby=Id desc
+// so the newest rows come first.
+async function gAllCap(token,url,cap){let a=[],n=url;while(n&&a.length<cap){const d=await gGet(token,n);a=a.concat(d.value||[]);n=d["@odata.nextLink"]||null;}return a;}
 async function gPost(token,url,fields){const r=await fetch(url,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({fields})});if(!r.ok)throw new Error(`POST ${r.status}`);return r.json();}
 async function gPatch(token,url,fields){const r=await fetch(url,{method:"PATCH",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(fields)});if(!r.ok)throw new Error(`PATCH ${r.status}`);return r.json();}
 
 async function safeGet(token,name,url){try{const r=await gAll(token,url);console.log(`[PMH] ${name}: ${r.length}`);return r;}catch(e){console.warn(`[PMH] ${name} failed:`,e.message);return[];}}
+async function safeGetCap(token,name,url,cap){try{const r=await gAllCap(token,url,cap);console.log(`[PMH] ${name}: ${r.length}${r.length>=cap?"+ (capped)":""}`);return r;}catch(e){console.warn(`[PMH] ${name} failed:`,e.message);return[];}}
 
 // ============================================================
 // ROLE DETECTION
@@ -1683,12 +1688,12 @@ function App(){
 
       const[recurringRaw,activityRaw,helpRaw,tagsRaw,propsRaw,portfoliosRaw,vaActivityRaw,oneOnOneRaw]=await Promise.all([
         safeGet(tk,"PM_RecurringTasks",`${lUrl(CONFIG.listRecurring)}?expand=fields&$top=500`),
-        safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500`),
+        safeGetCap(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500&$orderby=Id desc`,4000),
         safeGet(tk,"PM_HelpQueue",`${lUrl(CONFIG.listHelpQueue)}?expand=fields&$top=200`),
         safeGet(tk,"PM_Tags",`${lUrl(CONFIG.listTags)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Properties",`${lUrl(CONFIG.listVAProperties)}?expand=fields&$top=200`),
         safeGet(tk,"VA_Portfolios",`${lUrl(CONFIG.listVAPortfolios)}?expand=fields&$top=200`),
-        safeGet(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=500&$orderby=Id desc`),
+        safeGetCap(tk,"VA_Activity",`${lUrl(CONFIG.listVAActivity)}?expand=fields&$top=500&$orderby=Id desc`,2000),
         safeGet(tk,"PM_OneOnOne",`${lUrl(CONFIG.listOneOnOne)}?expand=fields&$top=200`),
       ]);
 
@@ -1744,17 +1749,8 @@ function App(){
       const oneOnOneSessions=oneOnOneRaw.map(r=>({...r.fields,id:r.id}));
       const newData={emps,me,properties,portfolios,vaActivities,vas,pms,helpQueue,tags,reviews,allResponses,recurringDefs,activity,oneOnOneSessions};
       setData(newData);
-
-      // Generate missing tasks for current user (safety net)
-      if(isAnyPM(userRole)||userRole==="ar"||userRole==="admin"){
-        const myActivity=activity.filter(a=>a.PMEmail?.toLowerCase()===myEmail);
-        // Client-side generation disabled — use Generate-TodaysTasks.ps1 instead
-        // await generateMissingTasks(tk,recurringDefs,myActivity,myEmail,me);
-        // Reload activity after generation
-        const freshActivity=await safeGet(tk,"PM_Activity",`${lUrl(CONFIG.listPMActivity)}?expand=fields&$top=500`);
-        newData.activity=freshActivity.map(r=>({...r.fields,id:r.id}));
-        setData({...newData});
-      }
+      // (Daily generation runs server-side via GitHub Actions — no client-side
+      // re-fetch needed here. Removing it halves the load for admins.)
 
       // Set default tab based on role
       const defaultTabs={pm:"checklist",ar:"artasks",regional:"regional",admin:"checklist"};
@@ -1824,9 +1820,10 @@ function App(){
   }
 
   async function toggleAbsence(pm){
+    const isOut=pm.PMTrackerStatus==="Out";
+    fl(isOut?`Marking ${pm.Name} back In…`:`Marking ${pm.Name} Out…`); // instant feedback
     try{
       const tk=await getToken();
-      const isOut=pm.PMTrackerStatus==="Out";
       const newStatus=isOut?"Active":"Out";
       const nowIso=new Date().toISOString();
       // Stamp the absence dates: OutSince when going Out, OutUntil on return.
@@ -1837,21 +1834,22 @@ function App(){
         // Mark Out: excuse their open tasks (so out-days aren't penalized) and
         // post coverage to the Help Queue so the work still gets picked up.
         const pmTasks=(data?.activity||[]).filter(a=>a.PMEmail?.toLowerCase()===pm.Email?.toLowerCase()&&(getChoiceVal(a.Status)==="Queued"||getChoiceVal(a.Status)==="In Progress"));
-        for(const task of pmTasks){
-          await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{Status:"Not Applicable",CompletedAt:nowIso,IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name});
-          await gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Coverage: ${task.Description||task.Title}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:pm.Email,RequestingPMName:pm.Name,Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name,Notes:`Auto-generated: ${pm.Name} is marked Out`,CreatedAt:nowIso});
-        }
+        // Run in parallel — one-at-a-time made this feel like nothing was happening.
+        await Promise.all(pmTasks.map(task=>
+          gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{Status:"Not Applicable",CompletedAt:nowIso,IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name})
+            .then(()=>gPost(tk,lUrl(CONFIG.listHelpQueue),{Title:`Coverage: ${task.Description||task.Title}`,TaskTitle:task.Description||task.Title,RequestingPMEmail:pm.Email,RequestingPMName:pm.Name,Category:task.Category||"",Priority:task.Priority||"Normal",Status:"Open",IsCoverage:true,CoverageForEmail:pm.Email,CoverageForName:pm.Name,Notes:`Auto-generated: ${pm.Name} is marked Out`,CreatedAt:nowIso}))
+        ));
         fl(`${pm.Name} marked Out — ${pmTasks.length} tasks excused & sent to Help Queue`);
       } else {
         // Mark In: remove coverage flag from their unclaimed tasks
         const coverageTasks=(data?.activity||[]).filter(a=>a.CoverageForEmail?.toLowerCase()===pm.Email?.toLowerCase()&&getChoiceVal(a.Status)==="Queued");
-        for(const task of coverageTasks){
-          await gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:false,CoverageForEmail:"",CoverageForName:""});
-        }
+        await Promise.all(coverageTasks.map(task=>
+          gPatch(tk,`${SITE}/lists/${CONFIG.listPMActivity}/items/${task.id}/fields`,{IsCoverage:false,CoverageForEmail:"",CoverageForName:""})
+        ));
         fl(`${pm.Name} marked In`);
       }
       await loadAll();
-    }catch(e){fl("Error: "+e.message);}
+    }catch(e){fl("Mark Out failed: "+e.message);}
   }
 
   async function saveSession(session,pendingTasks){
