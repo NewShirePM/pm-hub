@@ -1167,11 +1167,16 @@ function EditPanel({fields,setFields,allStaff,catList}){
 // Roles assignable here. "regional" and "admin" grant full admin access;
 // "denied" blocks the app. Writes straight to the Employees list.
 const EDITOR_ROLES=["pm-onsite","pm-remote","apm","ar","maintenance","regional","admin","denied"];
-function HolidaysCard({holidays,onAdd,onDelete}){
+function HolidaysCard({holidays,onAdd,onUpdate,onDelete}){
   const[name,setName]=useState("");
   const[date,setDate]=useState("");
   const[busy,setBusy]=useState(false);
+  const[editId,setEditId]=useState(null);
+  const[eName,setEName]=useState("");
+  const[eDate,setEDate]=useState("");
   const todayStr=today();
+  function startEdit(h){setEditId(h.id);setEName(h.Title||"");setEDate((h.HolidayDate||"").slice(0,10));}
+  async function saveEdit(h){if(!eName.trim()||!eDate)return;if(onUpdate)await onUpdate(h,eName,eDate);setEditId(null);}
   const fmt=ds=>{if(!ds)return"";const d=new Date(ds.slice(0,10)+"T00:00:00");return d.toLocaleDateString(undefined,{weekday:"short",year:"numeric",month:"short",day:"numeric"});};
   const isWeekend=ds=>{const d=new Date(ds.slice(0,10)+"T00:00:00");const g=d.getDay();return g===0||g===6;};
   const sorted=(holidays||[]).slice().sort((a,b)=>(a.HolidayDate||"").localeCompare(b.HolidayDate||""));
@@ -1200,12 +1205,26 @@ function HolidaysCard({holidays,onAdd,onDelete}){
     {sorted.map((h,i)=>{
       const past=(h.HolidayDate||"").slice(0,10)<todayStr;
       const wknd=h.HolidayDate&&isWeekend(h.HolidayDate);
+      const editing=editId===h.id;
+      if(editing)return<div key={h.id||i} style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap",padding:"8px 0",borderBottom:`1px solid ${C.b1}`,background:C.t1}}>
+        <div style={{flex:1,minWidth:160}}>
+          <label style={{fontSize:11,color:C.b4}}>Holiday name</label>
+          <input style={{...S.input,marginBottom:0}} value={eName} onChange={e=>setEName(e.target.value)}/>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:C.b4}}>Date</label>
+          <input type="date" style={{...S.input,marginBottom:0,width:160}} value={eDate} onChange={e=>setEDate(e.target.value)}/>
+        </div>
+        <button style={{...S.btnO(C.b4,C.b2),...S.sm}} onClick={()=>setEditId(null)}>Cancel</button>
+        <button style={{...S.btn(C.ok),...S.sm,opacity:(!eName.trim()||!eDate)?.5:1}} disabled={!eName.trim()||!eDate} onClick={()=>saveEdit(h)}>✓ Save</button>
+      </div>;
       return<div key={h.id||i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.b1}`,opacity:past?.5:1}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:13,fontWeight:600,color:C.t7}}>{h.Title||"(unnamed)"}</div>
           <div style={{fontSize:11,color:C.b4}}>{fmt(h.HolidayDate)}{past?" · past":""}</div>
         </div>
         {wknd&&<Badge type="warning">weekend — no effect</Badge>}
+        <button style={{...S.btnO(C.t6,C.t1),...S.xs}} onClick={()=>startEdit(h)}>✎ Edit</button>
         <button style={{...S.btnO(C.er,C.er),...S.xs}} onClick={()=>{if(window.confirm(`Remove holiday "${h.Title}"?`))onDelete&&onDelete(h);}}>✕</button>
       </div>;
     })}
@@ -1250,7 +1269,7 @@ function TeamRolesCard({emps,onSetRole}){
   </div>;
 }
 
-function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,onSetRole,onAddHoliday,onDeleteHoliday,fl}){
+function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec,onAddRec,onToggleRec,onDeleteRec,onAssignAdhoc,onMissAdhoc,onUpdateConfig,onSetRole,onAddHoliday,onUpdateHoliday,onDeleteHoliday,fl}){
   const[adminTab,setAdminTab]=useState("recurring"); // recurring | adhoc | team | holidays
   const[editId,setEditId]=useState(null);
   const[editFields,setEditFields]=useState({});
@@ -1386,7 +1405,7 @@ function AdminView({data,recurringDefs,adhocTasks,config,myEmail,myEmp,onSaveRec
     </div>
 
     {adminTab==="team"&&<TeamRolesCard emps={data?.emps||[]} onSetRole={onSetRole}/>}
-    {adminTab==="holidays"&&<HolidaysCard holidays={data?.holidays||[]} onAdd={onAddHoliday} onDelete={onDeleteHoliday}/>}
+    {adminTab==="holidays"&&<HolidaysCard holidays={data?.holidays||[]} onAdd={onAddHoliday} onUpdate={onUpdateHoliday} onDelete={onDeleteHoliday}/>}
 
     {adminTab==="recurring"&&<>
     {/* Recurring Task Management */}
@@ -2022,6 +2041,11 @@ function App(){
     try{const tk=await getToken();await gPost(tk,lUrl(CONFIG.listHolidays),{Title:name.trim(),HolidayDate:date,IsActive:true});await loadAll();fl("Holiday added — generation will skip that day");}
     catch(e){fl("Error adding holiday (does the PM_Holidays list exist?): "+e.message);}
   }
+  async function updateHoliday(h,name,date){
+    if(!name?.trim()||!date){fl("Holiday name and date are required");return;}
+    try{const tk=await getToken();await gPatch(tk,iUrl(CONFIG.listHolidays,h.id),{Title:name.trim(),HolidayDate:date});await loadAll();fl("Holiday updated");}
+    catch(e){fl("Error: "+e.message);}
+  }
   async function deleteHoliday(h){
     try{const tk=await getToken();await gDelete(tk,itUrl(CONFIG.listHolidays,h.id));await loadAll();fl("Holiday removed");}
     catch(e){fl("Error: "+e.message);}
@@ -2177,7 +2201,7 @@ function App(){
     {tab==="artasks"&&<ARTasksView tasks={arTasks} data={data} myEmail={myEmail} myEmp={myEmp} role={role} onStart={null} onComplete={completeTask} onNA={markNA} onFlagHelp={flagHelp} onSubmitVATask={submitVATask} fl={fl}/>}
     {tab==="regional"&&<RegionalView data={data} allTasks={data?.activity||[]} queue={data?.helpQueue||[]} dfFrom={dfFrom} dfTo={dfTo} setDfFrom={setDfFrom} setDfTo={setDfTo} onToggleAbsence={toggleAbsence} fl={fl}/>}
     {tab==="oneonone"&&<OneOnOneView data={data} role={role} myEmail={myEmail} myEmp={myEmp} allTasks={data?.activity||[]} onSaveSession={saveSession} onUpdateSession={updateSession} onDeleteSession={deleteSession} fl={fl}/>}
-    {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} onSetRole={updateEmployeeRole} onAddHoliday={addHoliday} onDeleteHoliday={deleteHoliday} fl={fl}/>}
+    {tab==="admin"&&<AdminView data={data} recurringDefs={data?.recurringDefs||[]} adhocTasks={adhocTasks} myEmail={myEmail} myEmp={myEmp} onSaveRec={saveRecurring} onAddRec={addRecurring} onToggleRec={toggleRecurring} onDeleteRec={deleteRecurring} onAssignAdhoc={assignAdhoc} onMissAdhoc={missAdhoc} onSetRole={updateEmployeeRole} onAddHoliday={addHoliday} onUpdateHoliday={updateHoliday} onDeleteHoliday={deleteHoliday} fl={fl}/>}
   </div>;
 }
 
