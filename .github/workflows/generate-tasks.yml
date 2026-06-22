@@ -4,8 +4,21 @@ name: Generate daily PM tasks
 # tasks into the PM_Activity SharePoint list.
 #
 # Schedule note: GitHub cron is UTC and does NOT follow daylight saving.
-# 09:00 UTC = 4:00 AM EST / 5:00 AM EDT — comfortably before the workday
-# in South Carolina year-round. Adjust the hour below if you want it later.
+# GitHub-hosted scheduled jobs are BEST EFFORT and routinely run late under
+# load — we've seen 2-6 hours of delay. A single 09:00 UTC (5 AM EDT) run
+# therefore sometimes didn't land until ~10:45 AM EDT, after managers had
+# already started and checked an empty dashboard.
+#
+# Fix: fire early and twice. 04:00 + 06:00 UTC are both well before the SC
+# workday even with several hours' slippage, and a second attempt is free
+# because the generator dedups (it skips anything already created today), so
+# a double run never produces duplicates. Both times key off the same UTC
+# calendar date, which is still "today" for the entire Eastern workday.
+#
+# Weekends and company holidays: the job still fires every day, but the script
+# itself skips Saturdays/Sundays and any date in the PM_Holidays SharePoint
+# list (evaluated in Eastern time) and exits as a no-op. Manage holidays by
+# editing that list — no change to this workflow is needed.
 #
 # Required repo secrets (Settings -> Secrets and variables -> Actions):
 #   PMHUB_TENANT_ID, PMHUB_CLIENT_ID, PMHUB_CLIENT_SECRET
@@ -13,7 +26,8 @@ name: Generate daily PM tasks
 
 on:
   schedule:
-    - cron: "0 9 * * *"
+    - cron: "0 4 * * *"     # ~12 AM EDT / 11 PM EST — primary (early, absorbs delay)
+    - cron: "0 6 * * *"     # ~2 AM EDT / 1 AM EST — backup in case the first is delayed
   workflow_dispatch:        # lets you run it on demand from the Actions tab
 
 # Avoid overlapping runs if a manual run coincides with the schedule.
