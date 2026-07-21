@@ -21,7 +21,7 @@ const TENANT = process.env.PMHUB_TENANT_ID;
 const CLIENT_ID = process.env.PMHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.PMHUB_CLIENT_SECRET;
 const SITE_ID = process.env.PMHUB_SITE_ID ||
-  "vanrockre.sharepoint.com,a02c1cd8-9f1f-4827-8286-7b6b7ce74232,01202419-6625-4499-b0d5-8ceb1cffdba3";
+  "newshirepmcom.sharepoint.com,f5d74a99-8b23-477c-aed0-c1682efa5de1,0aa4ab90-0ddc-4a81-a803-06d4f2e1a7d8";
 
 if (!TENANT || !CLIENT_ID || !CLIENT_SECRET) {
   // Not configured yet — no-op rather than fail, so scheduled runs don't
