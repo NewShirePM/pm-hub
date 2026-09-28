@@ -284,7 +284,10 @@ async function main() {
   ]);
 
   const defs = recRaw.map(r => ({ ...r.fields, _odataId: r.id, _fieldsId: r.fields?.id }));
-  const staff = empRaw.map(r => r.fields).filter(e => e && e.EmployeeActive !== false);
+  // Pre-hires (StartDate still ahead) exist in Employees so they can reach NewShire
+  // University's optional prehire courses. No tasks until their first day.
+  const staff = empRaw.map(r => r.fields).filter(e => e && e.EmployeeActive !== false
+    && !(e.StartDate && String(e.StartDate).slice(0, 10) > todayStr));
   const activity = actRaw.map(r => ({ ...r.fields, _id: r.id })).filter(Boolean);
 
   console.log(`Loaded ${defs.length} recurring defs, ${staff.length} active staff, ${activity.length} activity rows.`);
